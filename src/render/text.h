@@ -73,7 +73,6 @@ struct kmscon_cursor {
 	struct tsm_screen_cell cell;
 	unsigned int x;
 	unsigned int y;
-	bool visible;
 };
 
 struct kmscon_text_ops {

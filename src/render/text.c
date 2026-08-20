@@ -441,16 +441,32 @@ static bool is_underline(enum tsm_screen_cursor_style style)
 		style == TSM_SCREEN_CURSOR_UNDERLINE_STEADY);
 }
 
-#define CURSOR_STYLES 7
-static const uint32_t cursor_char[CURSOR_STYLES] = {
-	FONT_FULL_BLOCK, // default
-	FONT_FULL_BLOCK, // block blink
-	FONT_FULL_BLOCK, // block steady
-	0,		 // underline blink
-	0,		 // underline steady
-	FONT_VBAR,	 // vbar blink
-	FONT_VBAR,	 // vbar steady
-};
+static bool is_block(enum tsm_screen_cursor_style style)
+{
+	return (style == TSM_SCREEN_CURSOR_DEFAULT || style == TSM_SCREEN_CURSOR_BLOCK_BLINK ||
+		style == TSM_SCREEN_CURSOR_BLOCK_STEADY);
+}
+
+static bool is_vbar(enum tsm_screen_cursor_style style)
+{
+	return (style == TSM_SCREEN_CURSOR_VBAR_BLINK || style == TSM_SCREEN_CURSOR_VBAR_STEADY);
+}
+
+static void get_cursor_cell(struct tsm_screen_cell *cursor, const struct tsm_screen_cell *cell,
+			    enum tsm_screen_cursor_style style)
+{
+	cursor->fg = cell->fg;
+	cursor->bg = cell->bg;
+	cursor->ch = cell->ch;
+
+	if (is_underline(style)) {
+		cursor->attr2.underline = !cell->attr2.underline;
+	} else if (is_block(style)) {
+		cursor->fg = cell->bg;
+		cursor->bg = cell->fg;
+	} else if (is_vbar(style))
+		cursor->ch = FONT_VBAR;
+}
 
 /**
  * kmscon_text_draw:
@@ -466,6 +482,7 @@ int kmscon_text_draw(struct kmscon_text *txt, struct tsm_screen *con, bool curso
 	const struct tsm_screen_cell *cells;
 	struct kmscon_cursor cursor = {0};
 	enum tsm_screen_cursor_style style;
+	bool visible;
 
 	if (!txt || !con)
 		return -EINVAL;
@@ -475,21 +492,18 @@ int kmscon_text_draw(struct kmscon_text *txt, struct tsm_screen *con, bool curso
 	cursor.y = tsm_screen_get_cursor_y(con);
 	style = tsm_screen_get_cursor_style(con);
 
-	if (cursor.x < txt->cols && cursor.y < txt->rows) {
+	visible = !(tsm_screen_get_flags(con) & TSM_SCREEN_HIDE_CURSOR);
+	if (is_cursor_blinking(style) && cursor_blink)
+		visible = false;
+
+	if (cursor.x < txt->cols && cursor.y < txt->rows && visible) {
 		unsigned offset = cursor.x + cursor.y * txt->cols;
 
-		cursor.visible = !(tsm_screen_get_flags(con) & TSM_SCREEN_HIDE_CURSOR);
-		cursor.cell.fg = cells[offset].fg;
-		cursor.cell.bg = cells[offset].bg;
-		if (is_cursor_blinking(style))
-			cursor.visible = cursor.visible && !cursor_blink;
-		if (is_underline(style)) {
-			cursor.cell.attr2.underline = !cells[offset].attr2.underline;
-			cursor.cell.ch = cells[offset].ch;
-		} else if (style < CURSOR_STYLES)
-			cursor.cell.ch = cursor_char[style];
+		get_cursor_cell(&cursor.cell, &cells[offset], style);
 	}
-	return txt->ops->draw(txt, cells, &cursor);
+	if (visible)
+		return txt->ops->draw(txt, cells, &cursor);
+	return txt->ops->draw(txt, cells, NULL);
 }
 
 /**

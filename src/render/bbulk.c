@@ -448,7 +448,7 @@ static int bbulk_draw(struct kmscon_text *txt, const struct tsm_screen_cell *cel
 		for (posx = 0; posx < txt->cols; posx++) {
 			off = posx + posy * txt->cols;
 
-			if (cursor->visible && cursor->x == posx && cursor->y == posy)
+			if (cursor && cursor->x == posx && cursor->y == posy)
 				bbulk_draw_cell(txt, &cursor->cell, posx, posy);
 			else if (cells[off].attr2.blink && txt->blinking) {
 				struct tsm_screen_cell cell = cells[off];
