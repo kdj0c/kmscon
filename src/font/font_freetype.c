@@ -40,6 +40,7 @@
 
 struct ft_font {
 	FT_Face face;
+	char *name;
 	/* FontSet and Pattern are used for fallback glyphs */
 	FcFontSet *fc;
 	FcPattern *pattern;
@@ -53,21 +54,13 @@ struct ft_data {
 	struct ft_font bold;
 };
 
-static void print_font_name(FcPattern *pattern)
-{
-	FcChar8 *full_name = NULL;
-
-	if (FcPatternGetString(pattern, FC_FULLNAME, 0, &full_name) != FcResultMatch)
-		log_warn("failed to get full font name");
-	else
-		log_notice("Using font %s\n", full_name);
-}
-
 static void free_ft_font(struct ft_font *ftfont)
 {
 	if (ftfont->face)
 		FT_Done_Face(ftfont->face);
 	ftfont->face = NULL;
+	free(ftfont->name);
+	ftfont->name = NULL;
 	if (ftfont->fc)
 		FcFontSetDestroy(ftfont->fc);
 	ftfont->fc = NULL;
@@ -87,12 +80,16 @@ static int prepare_face(FT_Library ft, struct ft_font *ftfont)
 	int index = 0;
 	FcPattern *pattern;
 	int ret = -EINVAL;
+	FcChar8 *full_name = NULL;
 
 	pattern = FcFontRenderPrepare(NULL, ftfont->pattern, ftfont->fc->fonts[0]);
 	if (!pattern)
 		return -EINVAL;
 
-	print_font_name(pattern);
+	if (FcPatternGetString(pattern, FC_FULLNAME, 0, &full_name) == FcResultMatch)
+		ftfont->name = strdup((char *)full_name);
+	else
+		ftfont->name = strdup("Unknown");
 
 	if (FcPatternGetString(pattern, FC_FILE, 0, &path) != FcResultMatch)
 		goto err_pattern;
@@ -243,7 +240,8 @@ static int kmscon_font_freetype_init(struct kmscon_font *out, const struct kmsco
 	out->increase_step = 1;
 	out->data = ftf;
 
-	log_debug("Font attr %dx%d", out->attr.width, out->attr.height);
+	log_notice("Using [%s] / [%s] size %d -> cell size %dx%d", ftf->regular.name,
+		   ftf->bold.name, height, out->width, out->height);
 	return 0;
 
 err_free_reg:
@@ -442,12 +440,16 @@ static FT_Face prepare_tmp_face(FT_Library ft, struct ft_font *font, int fallbac
 	int index = 0;
 	FcPattern *pattern;
 	FT_Face face = NULL;
+	FcChar8 *full_name = NULL;
 
 	pattern = FcFontRenderPrepare(NULL, font->pattern, font->fc->fonts[fallback]);
 	if (!pattern)
 		return NULL;
 
-	print_font_name(pattern);
+	if (FcPatternGetString(pattern, FC_FULLNAME, 0, &full_name) == FcResultMatch)
+		font->name = strdup((char *)full_name);
+	else
+		font->name = strdup("Unknown");
 
 	if (FcPatternGetString(pattern, FC_FILE, 0, &path) != FcResultMatch)
 		goto err_pattern;
@@ -455,7 +457,7 @@ static FT_Face prepare_tmp_face(FT_Library ft, struct ft_font *font, int fallbac
 	if (FcPatternGetInteger(pattern, FC_INDEX, 0, &index) != FcResultMatch)
 		log_warn("%s: failed to get face index", path);
 
-	log_debug("Loading fallback font %s", (char *)path);
+	log_debug("Loading fallback font %s %s", font->name, (char *)path);
 
 	err = FT_New_Face(ft, (char *)path, index, &face);
 	if (err)
