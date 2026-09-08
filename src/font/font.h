@@ -51,21 +51,10 @@ struct kmscon_font_ops;
 #define FONT_VBAR 0x258e
 
 struct kmscon_font_attr {
-	char name[KMSCON_FONT_MAX_NAME];
 	bool bold;
 	bool italic;
 	bool underline;
-	unsigned int height;
-	unsigned int width;
 };
-
-static inline void kmscon_copy_attr(struct kmscon_font_attr *to,
-				    const struct kmscon_font_attr *from)
-{
-	memcpy(to, from, sizeof(*to));
-}
-
-bool kmscon_font_attr_match(const struct kmscon_font_attr *a1, const struct kmscon_font_attr *a2);
 
 struct kmscon_glyph {
 	bool double_width;
@@ -86,7 +75,8 @@ struct kmscon_font {
 	unsigned long ref;
 	struct shl_register_record *record;
 	const struct kmscon_font_ops *ops;
-	struct kmscon_font_attr attr;
+	unsigned int height;
+	unsigned int width;
 	unsigned increase_step;
 	void *data;
 };
@@ -94,22 +84,24 @@ struct kmscon_font {
 struct kmscon_font_ops {
 	const char *name;
 	struct shl_module *owner;
-	int (*init)(struct kmscon_font *out, const struct kmscon_font_attr *attr);
+	int (*init)(struct kmscon_font *out, const char *name, unsigned int height);
 	void (*destroy)(struct kmscon_font *font);
-	bool (*has_glyph)(struct kmscon_font *font, uint32_t ch);
-	struct kmscon_glyph *(*render)(struct kmscon_font *font, uint32_t ch);
+	bool (*has_glyph)(struct kmscon_font *font, struct kmscon_font_attr *attr, uint32_t ch);
+	struct kmscon_glyph *(*render)(struct kmscon_font *font, struct kmscon_font_attr *attr,
+				       uint32_t ch);
 };
 
 int kmscon_font_register(const struct kmscon_font_ops *ops);
 void kmscon_font_unregister(const char *name);
 
-int kmscon_font_find(struct kmscon_font **out, const struct kmscon_font_attr *attr,
+int kmscon_font_find(struct kmscon_font **out, const char *name, unsigned int height,
 		     const char *backend);
 void kmscon_font_ref(struct kmscon_font *font);
 void kmscon_font_unref(struct kmscon_font *font);
 
-struct kmscon_glyph *kmscon_font_render(struct kmscon_font *font, uint32_t ch);
-bool kmscon_font_has_glyph(struct kmscon_font *font, uint32_t ch);
+struct kmscon_glyph *kmscon_font_render(struct kmscon_font *font, struct kmscon_font_attr *attr,
+					uint32_t ch);
+bool kmscon_font_has_glyph(struct kmscon_font *font, struct kmscon_font_attr *attr, uint32_t ch);
 
 /* modularized backends */
 

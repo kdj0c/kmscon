@@ -73,7 +73,8 @@ static int fread_(void *src, void *dst, unsigned size)
 	return fread(dst, 1, size, src);
 }
 
-static int kmscon_font_psf_init(struct kmscon_font *out, const struct kmscon_font_attr *attr)
+static int kmscon_font_psf_init(struct kmscon_font *out, const char *name,
+				unsigned int query_height)
 {
 	unsigned char magic[4];
 	psf_font_t *font = NULL;
@@ -83,9 +84,9 @@ static int kmscon_font_psf_init(struct kmscon_font *out, const struct kmscon_fon
 	fread_t _fread = (fread_t)fread_;
 	fclose_t _fclose = (fclose_t)fclose;
 
-	void *font_file = fopen(attr->name, "rb");
+	void *font_file = fopen(name, "rb");
 	if (!font_file) {
-		log_error("failed open psf font: %s", attr->name);
+		log_error("failed open psf font: %s", name);
 		return 1;
 	}
 
@@ -95,7 +96,7 @@ static int kmscon_font_psf_init(struct kmscon_font *out, const struct kmscon_fon
 		_fseek(font_file, 0, SEEK_SET);
 		font_file = gzdopen(fileno(font_file), "rb");
 		if (!font_file) {
-			log_error("failed open font as gz: %s", attr->name);
+			log_error("failed open font as gz: %s", name);
 			return 1;
 		}
 		_fseek = (fseek_t)gzseek;
@@ -133,21 +134,17 @@ static int kmscon_font_psf_init(struct kmscon_font *out, const struct kmscon_fon
 	FREAD(font_file, font->data, glyphs * step, "file is too short to store all font glyphs");
 	_fclose(font_file);
 
-	memcpy(out->attr.name, attr->name, strlen(attr->name));
-
-	font->scale = (attr->height + (height / 2)) / height;
+	font->scale = (query_height + (height / 2)) / height;
 	if (!font->scale)
 		font->scale = 1;
 	out->data = font;
 
-	out->attr.bold = false;
-	out->attr.italic = false;
-	out->attr.width = width * font->scale;
-	out->attr.height = height * font->scale;
+	font->width = width * font->scale;
+	font->height = height * font->scale;
 	out->increase_step = height;
 
-	log_notice("using font: %s %dx%d, scale %d glyphs %d", attr->name, width, height,
-		   font->scale, font->glyphs);
+	log_notice("using font: %s %dx%d, scale %d glyphs %d", name, width, height, font->scale,
+		   font->glyphs);
 
 	return 0;
 
@@ -187,11 +184,12 @@ static uint32_t readrow(const uint8_t *data, uint8_t width)
 	return row >> (len * 8 - width);
 }
 
-static struct kmscon_glyph *new_glyph(uint32_t ch, const struct kmscon_font *kfont)
+static struct kmscon_glyph *new_glyph(const struct kmscon_font *kfont,
+				      struct kmscon_font_attr *attr, uint32_t ch)
 {
 	struct kmscon_glyph *glyph;
-	unsigned int w = kfont->attr.width;
-	unsigned int h = kfont->attr.height;
+	unsigned int w = kfont->width;
+	unsigned int h = kfont->height;
 	psf_font_t *font = kfont->data;
 	uint8_t *glyph_data = font->data + ch * font->step;
 	uint32_t c;
@@ -210,7 +208,7 @@ static struct kmscon_glyph *new_glyph(uint32_t ch, const struct kmscon_font *kfo
 	for (i = 0; i < h; i++) {
 		k = i / font->scale;
 		c = apply_attr(readrow(glyph_data + k * (font->step / font->height), font->width),
-			       &kfont->attr, k == (font->height - 1));
+			       attr, k == (font->height - 1));
 
 		for (j = 0; j < w; j++) {
 			l = j / font->scale;
@@ -221,14 +219,16 @@ static struct kmscon_glyph *new_glyph(uint32_t ch, const struct kmscon_font *kfo
 	return glyph;
 }
 
-static bool kmscon_font_psf_has_glyph(struct kmscon_font *kfont, uint32_t ch)
+static bool kmscon_font_psf_has_glyph(struct kmscon_font *kfont, struct kmscon_font_attr *attr,
+				      uint32_t ch)
 {
 	psf_font_t *font = kfont->data;
 
 	return (ch == FONT_FULL_BLOCK || ch == FONT_VBAR || ch < font->glyphs);
 }
 
-static struct kmscon_glyph *kmscon_font_psf_render(struct kmscon_font *kfont, uint32_t ch)
+static struct kmscon_glyph *kmscon_font_psf_render(struct kmscon_font *kfont,
+						   struct kmscon_font_attr *attr, uint32_t ch)
 {
 	psf_font_t *font = kfont->data;
 
@@ -237,9 +237,9 @@ static struct kmscon_glyph *kmscon_font_psf_render(struct kmscon_font *kfont, ui
 	else if (ch == FONT_VBAR)
 		ch = 179;
 	if (ch >= font->glyphs)
-		return new_glyph('?', kfont);
+		return new_glyph(kfont, attr, '?');
 
-	return new_glyph(ch, kfont);
+	return new_glyph(kfont, attr, ch);
 }
 
 struct kmscon_font_ops kmscon_font_psf_ops = {

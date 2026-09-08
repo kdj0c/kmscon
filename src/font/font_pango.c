@@ -58,8 +58,6 @@
 #define LOG_SUBSYSTEM "font_pango"
 
 struct face {
-	struct kmscon_font_attr attr;
-	struct kmscon_font_attr real_attr;
 	unsigned int baseline;
 	PangoContext *ctx;
 };
@@ -100,8 +98,8 @@ static void manager__unref()
 	}
 }
 
-static struct kmscon_glyph *get_glyph(struct face *face, const uint32_t ch,
-				      const struct kmscon_font_attr *attr)
+static struct kmscon_glyph *get_glyph(struct kmscon_font *font, struct face *face,
+				      const struct kmscon_font_attr *attr, const uint32_t ch)
 {
 	struct kmscon_glyph *glyph = NULL;
 	PangoLayout *layout;
@@ -167,19 +165,19 @@ static struct kmscon_glyph *get_glyph(struct face *face, const uint32_t ch,
 	pango_layout_line_get_extents(line, &logical_rec, &rec);
 	pango_extents_to_pixels(&rec, &logical_rec);
 
-	if (logical_rec.x + logical_rec.width > rec.x + face->real_attr.width)
+	if (logical_rec.x + logical_rec.width > rec.x + font->width)
 		cwidth = 2;
 
-	glyph = malloc(sizeof(*glyph) + cwidth * face->real_attr.width * face->real_attr.height);
+	glyph = malloc(sizeof(*glyph) + cwidth * font->width * font->height);
 	if (!glyph) {
 		log_error("cannot allocate memory for new glyph");
 		goto out_unlock;
 	}
-	memset(glyph, 0, sizeof(*glyph) + cwidth * face->real_attr.width * face->real_attr.height);
+	memset(glyph, 0, sizeof(*glyph) + cwidth * font->width * font->height);
 
 	glyph->double_width = cwidth == 2;
-	glyph->buf.width = face->real_attr.width * cwidth;
-	glyph->buf.height = face->real_attr.height;
+	glyph->buf.width = font->width * cwidth;
+	glyph->buf.height = font->height;
 
 	bitmap.rows = glyph->buf.height;
 	bitmap.width = glyph->buf.width;
@@ -201,7 +199,8 @@ out_unlock:
  * Print the font that is selected by Pango. You need to take the first glyph
  * of the first line, to have the font that is really used.
  */
-static void print_font(PangoLayout *layout)
+static void print_font(PangoLayout *layout, unsigned int font_size, unsigned int width,
+		       unsigned int height)
 {
 	PangoLayoutLine *lines;
 	PangoGlyphItem *pgi;
@@ -221,7 +220,8 @@ static void print_font(PangoLayout *layout)
 		return;
 	font_name = pango_font_description_to_string(desc);
 	if (font_name) {
-		log_notice("Using font %s\n", font_name);
+		log_notice("Using [%s] size %d -> cell size %dx%d\n", font_name, font_size, width,
+			   height);
 		free(font_name);
 	}
 	pango_font_description_free(desc);
@@ -246,7 +246,8 @@ static PangoFontDescription *new_pango_description(const char *name)
 	return desc;
 }
 
-static int manager_get_face(struct face **out, struct kmscon_font_attr *attr)
+static int manager_get_face(struct face **out, struct kmscon_font *font, const char *name,
+			    unsigned int height)
 {
 	struct face *face;
 	PangoFontDescription *desc;
@@ -268,19 +269,16 @@ static int manager_get_face(struct face **out, struct kmscon_font_attr *attr)
 		goto err_manager;
 	}
 	memset(face, 0, sizeof(*face));
-	memcpy(&face->attr, attr, sizeof(*attr));
 
 	face->ctx = pango_font_map_create_context(manager__lib);
 	pango_context_set_base_dir(face->ctx, PANGO_DIRECTION_LTR);
 	pango_context_set_language(face->ctx, pango_language_get_default());
 
-	desc = new_pango_description(attr->name);
+	desc = new_pango_description(name);
 
-	pango_font_description_set_absolute_size(desc, PANGO_SCALE * face->attr.height);
-	pango_font_description_set_weight(desc,
-					  attr->bold ? PANGO_WEIGHT_BOLD : PANGO_WEIGHT_NORMAL);
-	pango_font_description_set_style(desc,
-					 attr->italic ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
+	pango_font_description_set_absolute_size(desc, PANGO_SCALE * height);
+	pango_font_description_set_weight(desc, PANGO_WEIGHT_NORMAL);
+	pango_font_description_set_style(desc, PANGO_STYLE_NORMAL);
 	pango_font_description_set_variant(desc, PANGO_VARIANT_NORMAL);
 	pango_font_description_set_stretch(desc, PANGO_STRETCH_NORMAL);
 	pango_font_description_set_gravity(desc, PANGO_GRAVITY_SOUTH);
@@ -296,16 +294,17 @@ static int manager_get_face(struct face **out, struct kmscon_font_attr *attr)
 	      "@!\"$%&/()=?\\}][{°^~+*#'<>|-_.:,;`´";
 	num = strlen(str);
 	pango_layout_set_text(layout, str, num);
-	print_font(layout);
+
 	pango_layout_get_pixel_extents(layout, NULL, &rec);
 
-	memcpy(&face->real_attr, &face->attr, sizeof(face->attr));
-	face->real_attr.height = rec.height;
-	face->real_attr.width = rec.width / num + 1;
+	font->height = rec.height;
+	font->width = rec.width / num + 1;
 	face->baseline = PANGO_PIXELS_CEIL(pango_layout_get_baseline(layout));
+
+	print_font(layout, height, font->width, font->height);
 	g_object_unref(layout);
 
-	if (!face->real_attr.height || !face->real_attr.width) {
+	if (!font->height || !font->width) {
 		log_warning("invalid scaled font sizes");
 		ret = -EFAULT;
 		goto err_face;
@@ -335,21 +334,18 @@ static void block_sigchild(void)
 	pthread_sigmask(SIG_BLOCK, &mask, NULL);
 }
 
-static int kmscon_font_pango_init(struct kmscon_font *out, const struct kmscon_font_attr *attr)
+static int kmscon_font_pango_init(struct kmscon_font *out, const char *name, unsigned int height)
 {
 	struct face *face = NULL;
 	int ret;
 
-	memcpy(&out->attr, attr, sizeof(*attr));
-
-	log_debug("loading pango font %s", out->attr.name);
+	log_debug("loading pango font %s", name);
 
 	block_sigchild();
 
-	ret = manager_get_face(&face, &out->attr);
+	ret = manager_get_face(&face, out, name, height);
 	if (ret)
 		return ret;
-	memcpy(&out->attr, &face->real_attr, sizeof(out->attr));
 
 	out->data = face;
 	out->increase_step = 1;
@@ -372,14 +368,16 @@ static void kmscon_font_pango_destroy(struct kmscon_font *font)
 	manager_unlock();
 }
 
-static bool kmscon_font_pango_has_glyph(struct kmscon_font *font, uint32_t ch)
+static bool kmscon_font_pango_has_glyph(struct kmscon_font *font, struct kmscon_font_attr *attr,
+					uint32_t ch)
 {
 	return true;
 }
 
-static struct kmscon_glyph *kmscon_font_pango_render(struct kmscon_font *font, uint32_t ch)
+static struct kmscon_glyph *kmscon_font_pango_render(struct kmscon_font *font,
+						     struct kmscon_font_attr *attr, uint32_t ch)
 {
-	return get_glyph(font->data, ch, &font->attr);
+	return get_glyph(font, font->data, attr, ch);
 }
 
 struct kmscon_font_ops kmscon_font_pango_ops = {

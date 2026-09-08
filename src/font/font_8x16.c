@@ -46,30 +46,25 @@
 
 #include <errno.h>
 #include <stdlib.h>
-#include <string.h>
 #include "font.h"
 #include "font_8x16.data.bin.h"
 #include "shl/log.h"
 
 #define LOG_SUBSYSTEM "font_8x16"
 
-static int kmscon_font_8x16_init(struct kmscon_font *out, const struct kmscon_font_attr *attr)
+static int kmscon_font_8x16_init(struct kmscon_font *out, const char *unused_name,
+				 unsigned int height)
 {
-	static const char name[] = "static-8x16";
 	unsigned int scale;
 
 	log_debug("loading static 8x16 font");
 
-	memset(&out->attr, 0, sizeof(out->attr));
-	memcpy(out->attr.name, name, sizeof(name));
-
-	scale = (attr->height + 8) / 16;
+	scale = (height + 8) / 16;
 	if (!scale)
 		scale = 1;
-	out->attr.bold = false;
-	out->attr.italic = false;
-	out->attr.width = 8 * scale;
-	out->attr.height = 16 * scale;
+
+	out->width = 8 * scale;
+	out->height = 16 * scale;
 	out->increase_step = 16;
 
 	return 0;
@@ -127,23 +122,25 @@ static struct kmscon_glyph *new_glyph(uint32_t ch, const struct kmscon_font_attr
 	return glyph;
 }
 
-static bool kmscon_font_8x16_has_glyph(struct kmscon_font *font, uint32_t ch)
+static bool kmscon_font_8x16_has_glyph(struct kmscon_font *font, struct kmscon_font_attr *attr,
+				       uint32_t ch)
 {
 	return (ch < 256);
 }
 
-static struct kmscon_glyph *kmscon_font_8x16_render(struct kmscon_font *font, uint32_t ch)
+static struct kmscon_glyph *kmscon_font_8x16_render(struct kmscon_font *font,
+						    struct kmscon_font_attr *attr, uint32_t ch)
 {
-	unsigned int scale = font->attr.height / 16;
+	unsigned int scale = font->height / 16;
 
 	if (ch == FONT_FULL_BLOCK)
 		ch = 219;
 	else if (ch == FONT_VBAR)
 		ch = 179;
 	if (ch >= 256)
-		return new_glyph('?', &font->attr, scale);
+		return new_glyph('?', attr, scale);
 
-	return new_glyph(ch, &font->attr, scale);
+	return new_glyph(ch, attr, scale);
 }
 
 struct kmscon_font_ops kmscon_font_8x16_ops = {

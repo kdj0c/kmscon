@@ -292,14 +292,15 @@ static struct kmscon_glyph *find_glyph(struct kmscon_text *txt, const struct tsm
 	struct bbulk *bb = txt->data;
 	struct kmscon_glyph *glyph;
 	struct kmscon_font *font = txt->font;
+	struct kmscon_font_attr attr;
 	uint32_t ch = cell->ch ? cell->ch : ' ';
 	uint64_t id;
 
-	font->attr.underline = !!cell->attr2.underline;
-	font->attr.italic = !!cell->attr2.italic;
-	font->attr.bold = !!cell->attr2.bold;
+	attr.underline = !!cell->attr2.underline;
+	attr.italic = !!cell->attr2.italic;
+	attr.bold = !!cell->attr2.bold;
 
-	if (!kmscon_font_has_glyph(font, ch))
+	if (!kmscon_font_has_glyph(font, &attr, ch))
 		ch = FONT_REPLACEMENT_CHAR;
 
 	id = kmscon_glyph_id(cell->ch, cell->attr2.u8);
@@ -308,7 +309,7 @@ static struct kmscon_glyph *find_glyph(struct kmscon_text *txt, const struct tsm
 	if (glyph)
 		return glyph;
 
-	glyph = kmscon_font_render(font, ch);
+	glyph = kmscon_font_render(font, &attr, ch);
 	if (!glyph)
 		return NULL;
 

@@ -40,10 +40,12 @@ unsigned int kmscon_font_get_height(const struct kmscon_font *font)
 }
 
 /* Stub font rendering APIs used by text_bbulk.c */
-struct kmscon_glyph *kmscon_font_render(struct kmscon_font *font, const uint32_t ch)
+struct kmscon_glyph *kmscon_font_render(struct kmscon_font *font, struct kmscon_font_attr *attr,
+					const uint32_t ch)
 {
 	struct kmscon_glyph *g;
 	(void)font;
+	(void)attr;
 	(void)ch;
 	g = malloc(sizeof(*g) + FAKE_CELL_W * FAKE_CELL_W);
 	memset(g, 0, sizeof(*g) + FAKE_CELL_W * FAKE_CELL_W);
@@ -51,9 +53,11 @@ struct kmscon_glyph *kmscon_font_render(struct kmscon_font *font, const uint32_t
 	return g;
 }
 
-bool kmscon_font_has_glyph(struct kmscon_font *font, const uint32_t ch)
+bool kmscon_font_has_glyph(struct kmscon_font *font, struct kmscon_font_attr *attr,
+			   const uint32_t ch)
 {
 	(void)font;
+	(void)attr;
 	(void)ch;
 	return true;
 }
@@ -124,7 +128,7 @@ void display_set_cursor_offset(struct display *disp, int32_t x, int32_t y)
 #include "../src/render/bbulk.c"
 
 /* Fake font objects with valid width/height for FONT_WIDTH/FONT_HEIGHT macros */
-static struct kmscon_font fake_font = {.attr = {.width = FAKE_CELL_W, .height = FAKE_CELL_H}};
+static struct kmscon_font fake_font = {.width = FAKE_CELL_W, .height = FAKE_CELL_H};
 
 static void init_fake_txt(struct kmscon_text *txt)
 {

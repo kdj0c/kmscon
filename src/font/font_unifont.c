@@ -114,8 +114,8 @@ static int lookup_block(const struct unifont_glyph_block *blocks, uint32_t len, 
 	return -1;
 }
 
-static struct kmscon_glyph *new_glyph(const struct kmscon_font_attr *attr, const uint8_t *data,
-				      int cwidth)
+static struct kmscon_glyph *new_glyph(struct kmscon_font *font, const struct kmscon_font_attr *attr,
+				      const uint8_t *data, int cwidth)
 {
 	struct kmscon_glyph *g;
 	uint8_t c;
@@ -123,14 +123,14 @@ static struct kmscon_glyph *new_glyph(const struct kmscon_font_attr *attr, const
 	int i, j, k;
 	int off = 0;
 
-	scale = attr->height / 16;
-	g = malloc(sizeof(*g) + cwidth * attr->width * attr->height);
+	scale = font->height / 16;
+	g = malloc(sizeof(*g) + cwidth * font->width * font->height);
 	if (!g)
 		return NULL;
 	memset(g, 0, sizeof(*g));
 	g->double_width = (cwidth == 2);
-	g->buf.width = cwidth * attr->width;
-	g->buf.height = attr->height;
+	g->buf.width = cwidth * font->width;
+	g->buf.height = font->height;
 
 	/* Unpack the glyph and apply scaling */
 	for (i = 0; i < 16; i++) {
@@ -155,7 +155,8 @@ static struct kmscon_glyph *new_glyph(const struct kmscon_font_attr *attr, const
 	return g;
 }
 
-static bool kmscon_font_unifont_has_glyph(struct kmscon_font *font, uint32_t ch)
+static bool kmscon_font_unifont_has_glyph(struct kmscon_font *font, struct kmscon_font_attr *attr,
+					  uint32_t ch)
 {
 	struct unifont_data *uf = font->data;
 	uint32_t block_len;
@@ -169,7 +170,8 @@ static bool kmscon_font_unifont_has_glyph(struct kmscon_font *font, uint32_t ch)
 	return lookup_block(blocks, block_len, ch) >= 0;
 }
 
-static struct kmscon_glyph *kmscon_font_unifont_render(struct kmscon_font *font, uint32_t ch)
+static struct kmscon_glyph *kmscon_font_unifont_render(struct kmscon_font *font,
+						       struct kmscon_font_attr *attr, uint32_t ch)
 {
 	struct unifont_data *uf = font->data;
 	const uint8_t *data;
@@ -193,12 +195,12 @@ static struct kmscon_glyph *kmscon_font_unifont_render(struct kmscon_font *font,
 		return NULL;
 	}
 
-	return new_glyph(&font->attr, data, blocks[idx].cwidth);
+	return new_glyph(font, attr, data, blocks[idx].cwidth);
 }
 
-static int kmscon_font_unifont_init(struct kmscon_font *out, const struct kmscon_font_attr *attr)
+static int kmscon_font_unifont_init(struct kmscon_font *out, const char *unused_name,
+				    unsigned int height)
 {
-	static const char name[] = "static-unifont";
 	struct unifont_data *uf;
 	unsigned int scale;
 
@@ -222,17 +224,12 @@ static int kmscon_font_unifont_init(struct kmscon_font *out, const struct kmscon
 		       _binary_font_unifont_data_size - 4) != Z_OK)
 		goto err_free_data;
 
-	memset(&out->attr, 0, sizeof(out->attr));
-	memcpy(out->attr.name, name, sizeof(name));
-	out->attr.bold = attr->bold;
-	out->attr.italic = false;
-
-	scale = (attr->height + 8) / 16;
+	scale = (height + 8) / 16;
 	if (!scale)
 		scale = 1;
 
-	out->attr.width = 8 * scale;
-	out->attr.height = 16 * scale;
+	out->width = 8 * scale;
+	out->height = 16 * scale;
 	out->increase_step = 16;
 	out->data = uf;
 

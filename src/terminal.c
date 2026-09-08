@@ -87,16 +87,18 @@ struct kmscon_terminal {
 	struct kmscon_session *session;
 
 	struct shl_dlist screens;
-	unsigned int min_cols;
-	unsigned int min_rows;
+	unsigned int cols;
+	unsigned int rows;
 
 	struct tsm_screen *console;
 	struct tsm_vte *vte;
 	struct kmscon_pty *pty;
 	struct ev_fd *ptyfd;
 
-	struct kmscon_font_attr font_attr;
 	struct kmscon_font *font;
+	/* font size configured in kmscon.conf, and updated with zoom in/out.
+	 * do not use for cell size calculations */
+	unsigned int font_size;
 
 	struct kmscon_pointer pointer;
 
@@ -116,10 +118,10 @@ static int font_set(struct kmscon_terminal *term);
 static void coord_to_cell(struct kmscon_terminal *term, int32_t x, int32_t y, unsigned int *posx,
 			  unsigned int *posy)
 {
-	int fw = term->font->attr.width;
-	int fh = term->font->attr.height;
-	int w = tsm_screen_get_width(term->console);
-	int h = tsm_screen_get_height(term->console);
+	int fw = term->font->width;
+	int fh = term->font->height;
+	int w = term->cols;
+	int h = term->rows;
 
 	*posx = x / fw;
 	*posy = y / fh;
@@ -235,14 +237,13 @@ static uint32_t *generate_ibeam_cursor(unsigned int font_height, unsigned int *w
 
 static void setup_hw_cursor(struct screen *scr)
 {
-	struct kmscon_terminal *term = scr->term;
 	bool rotate = scr->txt->orientation == OR_LEFT || scr->txt->orientation == OR_RIGHT;
 	unsigned int beam_h;
 	unsigned int beam_w;
 	uint32_t *pixels;
 	int ret;
 
-	pixels = generate_ibeam_cursor(term->font->attr.height, &beam_w, &beam_h, rotate);
+	pixels = generate_ibeam_cursor(scr->txt->font->height, &beam_w, &beam_h, rotate);
 	if (!pixels)
 		return;
 
@@ -531,11 +532,11 @@ static bool terminal_update_size_clone(struct kmscon_terminal *term)
 	if (min_cols == UINT_MAX || min_rows == UINT_MAX)
 		return false;
 
-	if (min_cols == term->min_cols && min_rows == term->min_rows)
+	if (min_cols == term->cols && min_rows == term->rows)
 		return false;
 
-	term->min_cols = min_cols;
-	term->min_rows = min_rows;
+	term->cols = min_cols;
+	term->rows = min_rows;
 
 	return true;
 }
@@ -559,8 +560,8 @@ static bool terminal_update_size_largest(struct kmscon_terminal *term)
 		cells = rows * cols;
 		if (cells > max_cells) {
 			max_cells = cells;
-			term->min_cols = cols;
-			term->min_rows = rows;
+			term->cols = cols;
+			term->rows = rows;
 		}
 	}
 	shl_dlist_for_each(iter, &term->screens)
@@ -568,7 +569,7 @@ static bool terminal_update_size_largest(struct kmscon_terminal *term)
 		scr = shl_dlist_entry(iter, struct screen, list);
 		rows = kmscon_text_get_rows(scr->txt);
 		cols = kmscon_text_get_cols(scr->txt);
-		if (rows != term->min_rows || cols != term->min_cols)
+		if (rows != term->rows || cols != term->cols)
 			disable_screen(scr);
 		else if (!scr->enabled) {
 			log_info("Enabling screen %s", display_name(scr->disp));
@@ -596,7 +597,7 @@ static bool terminal_update_size(struct kmscon_terminal *term)
 	{
 		scr = shl_dlist_entry(iter, struct screen, list);
 		if (scr->enabled)
-			kmscon_text_resize(scr->txt, term->min_cols, term->min_rows);
+			kmscon_text_resize(scr->txt, term->cols, term->rows);
 	}
 	return true;
 }
@@ -604,8 +605,8 @@ static bool terminal_update_size(struct kmscon_terminal *term)
 static void terminal_update_size_notify(struct kmscon_terminal *term)
 {
 	if (terminal_update_size(term)) {
-		tsm_screen_resize(term->console, term->min_cols, term->min_rows);
-		kmscon_pty_resize(term->pty, term->min_cols, term->min_rows);
+		tsm_screen_resize(term->console, term->cols, term->rows);
+		kmscon_pty_resize(term->pty, term->cols, term->rows);
 		redraw_all(term);
 	}
 }
@@ -617,15 +618,16 @@ static int font_set(struct kmscon_terminal *term)
 	struct shl_dlist *iter;
 	struct screen *scr;
 
-	ret = kmscon_font_find(&font, &term->font_attr, term->conf->font_engine);
+	ret = kmscon_font_find(&font, term->conf->font_name, term->font_size,
+			       term->conf->font_engine);
 	if (ret)
 		return ret;
 
 	kmscon_font_unref(term->font);
 	term->font = font;
 
-	term->min_cols = 0;
-	term->min_rows = 0;
+	term->cols = 0;
+	term->rows = 0;
 	shl_dlist_for_each(iter, &term->screens)
 	{
 		scr = shl_dlist_entry(iter, struct screen, list);
@@ -747,7 +749,7 @@ int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
 		setup_hw_cursor(scr);
 
 	terminal_update_size_notify(term);
-	kmscon_text_resize(scr->txt, term->min_cols, term->min_rows);
+	kmscon_text_resize(scr->txt, term->cols, term->rows);
 	update_pointer_max_all(term);
 	display_ref(scr->disp);
 	do_redraw_screen(scr);
@@ -803,23 +805,23 @@ void terminal_rm_display(struct kmscon_terminal *term, struct display *disp)
 
 static void zoom_in(struct kmscon_terminal *term)
 {
-	if (term->font_attr.height > 150) // don't allow zoom in beyond 150
+	if (term->font_size > 150) // don't allow zoom in beyond 150
 		return;
 
-	term->font_attr.height += term->font->increase_step;
+	term->font_size += term->font->increase_step;
 	if (font_set(term))
-		term->font_attr.height -= term->font->increase_step;
+		term->font_size -= term->font->increase_step;
 }
 
 static void zoom_out(struct kmscon_terminal *term)
 {
-	if (term->font_attr.height <= term->font->increase_step)
+	if (term->font_size <= term->font->increase_step)
 		return;
-	if (term->font_attr.height - term->font->increase_step < 10)
+	if (term->font_size - term->font->increase_step < 10)
 		return;
-	term->font_attr.height -= term->font->increase_step;
+	term->font_size -= term->font->increase_step;
 	if (font_set(term))
-		term->font_attr.height += term->font->increase_step;
+		term->font_size += term->font->increase_step;
 }
 
 static void input_event(struct input *input, struct input_key_event *ev, void *data)
@@ -1112,8 +1114,8 @@ static void rm_all_screens(struct kmscon_terminal *term)
 		free_screen(scr, false);
 	}
 
-	term->min_cols = 0;
-	term->min_rows = 0;
+	term->cols = 0;
+	term->rows = 0;
 }
 
 static void kmscon_issue_write(struct kmscon_terminal *term)
@@ -1285,9 +1287,6 @@ struct kmscon_terminal *terminal_new(struct kmscon_session *session, unsigned in
 	term->conf_ctx = conf_ctx;
 	term->conf = conf_ctx_get_mem(term->conf_ctx);
 
-	strncpy(term->font_attr.name, term->conf->font_name, KMSCON_FONT_MAX_NAME - 1);
-	term->font_attr.height = term->conf->font_size;
-
 	ret = tsm_screen_new(&term->console, log_llog, NULL);
 	if (ret)
 		goto err_free;
@@ -1312,6 +1311,7 @@ struct kmscon_terminal *terminal_new(struct kmscon_session *session, unsigned in
 	if (ret)
 		goto err_vte;
 
+	term->font_size = term->conf->font_size;
 	ret = font_set(term);
 	if (ret)
 		goto err_vte;

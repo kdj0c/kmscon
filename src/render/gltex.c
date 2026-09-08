@@ -400,17 +400,18 @@ static struct gl_glyph *find_glyph(struct kmscon_text *txt, const struct tsm_scr
 	struct kmscon_font *font = txt->font;
 	unsigned int num;
 	struct kmscon_glyph *glyph;
+	struct kmscon_font_attr attr;
 	uint32_t ch = cell->ch ? cell->ch : ' ';
 	uint64_t id;
 
-	font->attr.underline = !!cell->attr2.underline;
-	font->attr.italic = !!cell->attr2.italic;
-	font->attr.bold = !!cell->attr2.bold;
+	attr.underline = !!cell->attr2.underline;
+	attr.italic = !!cell->attr2.italic;
+	attr.bold = !!cell->attr2.bold;
 
 	if (cell->attr2.blink && txt->blinking)
 		ch = ' ';
 
-	if (!kmscon_font_has_glyph(font, ch))
+	if (!kmscon_font_has_glyph(font, &attr, ch))
 		ch = FONT_REPLACEMENT_CHAR;
 
 	id = kmscon_glyph_id(ch, cell->attr2.u8);
@@ -423,7 +424,7 @@ static struct gl_glyph *find_glyph(struct kmscon_text *txt, const struct tsm_scr
 		return NULL;
 	memset(glglyph, 0, sizeof(*glglyph));
 
-	glyph = kmscon_font_render(font, ch);
+	glyph = kmscon_font_render(font, &attr, ch);
 	if (!glyph)
 		return NULL;
 

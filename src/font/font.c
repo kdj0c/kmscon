@@ -120,10 +120,10 @@ void kmscon_font_unregister(const char *name)
 	shl_register_remove(&font_reg, name);
 }
 
-static const char *default_font[] = {"freetype", "pango", "unifont", "psf", "8x16"};
+static const char *default_backend[] = {"freetype", "pango", "unifont", "psf", "8x16"};
 
-static int init_font(struct kmscon_font *font, struct shl_register_record *record,
-		     const struct kmscon_font_attr *attr)
+static int init_font(struct kmscon_font *font, struct shl_register_record *record, const char *name,
+		     unsigned int height)
 {
 	memset(font, 0, sizeof(*font));
 	font->ref = 1;
@@ -131,37 +131,37 @@ static int init_font(struct kmscon_font *font, struct shl_register_record *recor
 	font->ops = record->data;
 
 	if (font->ops->init)
-		return font->ops->init(font, attr);
+		return font->ops->init(font, name, height);
 	return 0;
 }
 
-static int try_font(struct kmscon_font *font, const struct kmscon_font_attr *attr,
+static int try_font(struct kmscon_font *font, const char *name, unsigned int height,
 		    const char *backend)
 {
 	struct shl_register_record *record = shl_register_find(&font_reg, backend);
 	if (!record)
 		return -ENOENT;
-	return init_font(font, record, attr);
+	return init_font(font, record, name, height);
 }
 
-static int new_font(struct kmscon_font *font, const struct kmscon_font_attr *attr,
+static int new_font(struct kmscon_font *font, const char *name, unsigned int height,
 		    const char *backend)
 {
 	int ret = -ENOENT;
 
 	if (backend)
-		ret = try_font(font, attr, backend);
+		ret = try_font(font, name, height, backend);
 
 	if (ret == 0)
 		return 0;
 
-	for (int i = 0; i < sizeof(default_font) / sizeof(default_font[0]); i++) {
-		ret = try_font(font, attr, default_font[i]);
+	for (int i = 0; i < sizeof(default_backend) / sizeof(default_backend[0]); i++) {
+		ret = try_font(font, name, height, default_backend[i]);
 		if (ret == 0)
 			return 0;
 	}
 	/* last resort */
-	return init_font(font, shl_register_first(&font_reg), attr);
+	return init_font(font, shl_register_first(&font_reg), name, height);
 }
 
 /**
@@ -198,17 +198,16 @@ static int new_font(struct kmscon_font *font, const struct kmscon_font_attr *att
  *
  * Returns: 0 on success, error code on failure
  */
-int kmscon_font_find(struct kmscon_font **out, const struct kmscon_font_attr *attr,
+int kmscon_font_find(struct kmscon_font **out, const char *name, unsigned int height,
 		     const char *backend)
 {
 	struct kmscon_font *font;
 	int ret;
 
-	if (!out || !attr)
+	if (!out)
 		return -EINVAL;
 
-	log_debug("searching for: be: %s nm: %s b: %d size %ux%u", backend, attr->name, attr->bold,
-		  attr->height, attr->width);
+	log_debug("[%s] searching font %s, size %u", backend, name, height);
 
 	font = malloc(sizeof(*font));
 	if (!font) {
@@ -216,12 +215,11 @@ int kmscon_font_find(struct kmscon_font **out, const struct kmscon_font_attr *at
 		return -ENOMEM;
 	}
 
-	ret = new_font(font, attr, backend);
+	ret = new_font(font, name, height, backend);
 	if (ret)
 		goto err_free;
 
-	log_debug("using: be: %s nm: %s b: %d size %ux%u", font->ops->name, font->attr.name,
-		  font->attr.bold, font->attr.width, font->attr.height);
+	log_debug("[%s] name: %s size %u", font->ops->name, name, height);
 	*out = font;
 	return 0;
 
@@ -275,18 +273,19 @@ void kmscon_font_unref(struct kmscon_font *font)
  * Returns: a new allocated glyph object on success, NULL on failure
  */
 SHL_EXPORT
-struct kmscon_glyph *kmscon_font_render(struct kmscon_font *font, uint32_t ch)
+struct kmscon_glyph *kmscon_font_render(struct kmscon_font *font, struct kmscon_font_attr *attr,
+					uint32_t ch)
 {
 	struct kmscon_glyph *glyph;
 
 	if (!font)
 		return NULL;
 
-	glyph = font->ops->render(font, ch);
+	glyph = font->ops->render(font, attr, ch);
 	if (!glyph)
-		glyph = font->ops->render(font, FONT_REPLACEMENT_CHAR);
+		glyph = font->ops->render(font, attr, FONT_REPLACEMENT_CHAR);
 	if (!glyph)
-		glyph = font->ops->render(font, '?');
+		glyph = font->ops->render(font, attr, '?');
 	return glyph;
 }
 
@@ -301,10 +300,10 @@ struct kmscon_glyph *kmscon_font_render(struct kmscon_font *font, uint32_t ch)
  * Returns: true if the font has a glyph for the given symbol, false otherwise
  */
 SHL_EXPORT
-bool kmscon_font_has_glyph(struct kmscon_font *font, uint32_t ch)
+bool kmscon_font_has_glyph(struct kmscon_font *font, struct kmscon_font_attr *attr, uint32_t ch)
 {
 	if (!font)
 		return false;
 
-	return font->ops->has_glyph(font, ch);
+	return font->ops->has_glyph(font, attr, ch);
 }
