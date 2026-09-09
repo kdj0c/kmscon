@@ -102,13 +102,11 @@ void kmscon_text_unregister(const char *name)
 	shl_register_remove(&text_reg, name);
 }
 
-static int new_text(struct kmscon_text *text, const char *backend, enum Orientation orientation)
+static int new_text(struct kmscon_text *text, const char *backend)
 {
 	struct shl_register_record *record;
 	const char *name = backend ? backend : "<default>";
-	int ret;
 
-	memset(text, 0, sizeof(*text));
 	text->ref = 1;
 
 	if (backend)
@@ -123,19 +121,17 @@ static int new_text(struct kmscon_text *text, const char *backend, enum Orientat
 
 	text->record = record;
 	text->ops = record->data;
-	text->orientation = orientation;
 
-	if (text->ops->init)
+	if (text->ops->init) {
+		int ret;
+
 		ret = text->ops->init(text);
-	else
-		ret = 0;
-
-	if (ret) {
-		log_warning("backend %s cannot create renderer", name);
-		shl_register_record_unref(record);
-		return ret;
+		if (ret) {
+			log_warning("backend %s cannot create renderer %d", name, ret);
+			shl_register_record_unref(record);
+			return ret;
+		}
 	}
-
 	return 0;
 }
 
@@ -147,15 +143,16 @@ static int new_text(struct kmscon_text *text, const char *backend, enum Orientat
  *
  * Returns: 0 on success, error code on failure
  */
-int kmscon_text_new(struct kmscon_text **out, const char *backend, const char *rotate)
+int kmscon_text_new(struct kmscon_text **out, const char *backend, const char *rotate,
+		    struct display *disp)
 {
 	struct kmscon_text *text;
 	int ret;
 
-	if (!out)
+	if (!out || !disp)
 		return -EINVAL;
 
-	text = malloc(sizeof(*text));
+	text = calloc(1, sizeof(*text));
 	if (!text) {
 		log_error("cannot allocate memory for new text-renderer");
 		return -ENOMEM;
@@ -179,13 +176,15 @@ int kmscon_text_new(struct kmscon_text **out, const char *backend, const char *r
 		}
 	}
 
-	ret = new_text(text, backend, text->orientation);
+	ret = new_text(text, backend);
 	if (ret) {
 		if (backend)
-			ret = new_text(text, NULL, text->orientation);
+			ret = new_text(text, NULL);
 		if (ret)
 			goto err_free;
 	}
+	text->disp = disp;
+	display_ref(disp);
 
 	log_debug("using: be: %s", text->ops->name);
 	*out = text;
@@ -224,6 +223,7 @@ void kmscon_text_unref(struct kmscon_text *text)
 
 	log_debug("freeing text renderer");
 	kmscon_text_unset(text);
+	display_unref(text->disp);
 
 	if (text->ops->destroy)
 		text->ops->destroy(text);
@@ -235,41 +235,37 @@ void kmscon_text_unref(struct kmscon_text *text)
  * kmscon_text_set:
  * @txt: Valid text-renderer object
  * @font: font object
- * @disp: display object
  *
- * This makes the text-renderer @txt use the font @font and screen @screen. You
- * can drop your reference to both after calling this.
+ * This makes the text-renderer @txt use the font @font. You
+ * can drop your reference to the font after calling this.
  * This calls kmscon_text_unset() first to remove all previous associations.
  * None of the arguments can be NULL!
- * If this function fails then you must assume that no font/screen will be set
+ * If this function fails then you must assume that no font will be set
  * and the object is invalid.
  *
  * Returns: 0 on success, negative error code on failure.
  */
-int kmscon_text_set(struct kmscon_text *txt, struct kmscon_font *font, struct display *disp)
+int kmscon_text_set(struct kmscon_text *txt, struct kmscon_font *font)
 {
 	int ret;
 
-	if (!txt || !font || !disp)
+	if (!txt || !font)
 		return -EINVAL;
 
-	kmscon_text_unset(txt);
+	if (txt->font == font)
+		return 0;
 
+	kmscon_text_unset(txt);
 	txt->font = font;
-	txt->disp = disp;
 
 	if (txt->ops->set) {
 		ret = txt->ops->set(txt);
 		if (ret) {
 			txt->font = NULL;
-			txt->disp = NULL;
 			return ret;
 		}
 	}
-
 	kmscon_font_ref(txt->font);
-	display_ref(txt->disp);
-
 	return 0;
 }
 
@@ -278,22 +274,20 @@ int kmscon_text_set(struct kmscon_text *txt, struct kmscon_font *font, struct di
  * @txt: text renderer
  *
  * This redos kmscon_text_set() by dropping the internal references to the font
- * and screen and invalidating the object. You need to call kmscon_text_set()
+ * and invalidating the object. You need to call kmscon_text_set()
  * again to make use of this text renderer.
  * This is automatically called when the text renderer is destroyed.
  */
 void kmscon_text_unset(struct kmscon_text *txt)
 {
-	if (!txt || !txt->disp || !txt->font)
+	if (!txt || !txt->font)
 		return;
 
 	if (txt->ops->unset)
 		txt->ops->unset(txt);
 
 	kmscon_font_unref(txt->font);
-	display_unref(txt->disp);
 	txt->font = NULL;
-	txt->disp = NULL;
 	txt->cols = 0;
 	txt->rows = 0;
 	txt->rendering = false;
@@ -318,42 +312,24 @@ void kmscon_text_resize(struct kmscon_text *txt, unsigned int cols, unsigned int
 		txt->ops->resize(txt, cols, rows);
 }
 
-/**
- * kmscon_text_get_cols:
- * @txt: valid text renderer
- *
- * After setting the arguments with kmscon_text_set(), the renderer will compute
- * the number of columns/rows of the console that it can display on the screen.
- * You can retrieve these values via these functions.
- * If kmscon_text_set() hasn't been called, this will return 0.
- *
- * Returns: Number of columns or 0 if @txt is invalid
- */
-unsigned int kmscon_text_get_cols(struct kmscon_text *txt)
+unsigned int kmscon_text_get_cols(struct kmscon_text *txt, unsigned int font_width)
 {
-	if (!txt)
+	if (!txt || !font_width)
 		return 0;
-
-	return txt->max_cols;
+	if (txt->orientation == OR_NORMAL || txt->orientation == OR_UPSIDE_DOWN)
+		return display_get_width(txt->disp) / font_width;
+	else
+		return display_get_height(txt->disp) / font_width;
 }
 
-/**
- * kmscon_text_get_rows:
- * @txt: valid text renderer
- *
- * After setting the arguments with kmscon_text_set(), the renderer will compute
- * the number of columns/rows of the console that it can display on the screen.
- * You can retrieve these values via these functions.
- * If kmscon_text_set() hasn't been called, this will return 0.
- *
- * Returns: Number of rows or 0 if @txt is invalid
- */
-unsigned int kmscon_text_get_rows(struct kmscon_text *txt)
+unsigned int kmscon_text_get_rows(struct kmscon_text *txt, unsigned int font_height)
 {
-	if (!txt)
+	if (!txt || !font_height)
 		return 0;
-
-	return txt->max_rows;
+	if (txt->orientation == OR_NORMAL || txt->orientation == OR_UPSIDE_DOWN)
+		return display_get_height(txt->disp) / font_height;
+	else
+		return display_get_width(txt->disp) / font_height;
 }
 
 /**

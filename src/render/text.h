@@ -99,14 +99,15 @@ struct kmscon_text_ops {
 int kmscon_text_register(const struct kmscon_text_ops *ops);
 void kmscon_text_unregister(const char *name);
 
-int kmscon_text_new(struct kmscon_text **out, const char *backend, const char *rotate);
+int kmscon_text_new(struct kmscon_text **out, const char *backend, const char *rotate,
+		    struct display *disp);
 void kmscon_text_ref(struct kmscon_text *txt);
 void kmscon_text_unref(struct kmscon_text *txt);
 
-int kmscon_text_set(struct kmscon_text *txt, struct kmscon_font *font, struct display *disp);
+int kmscon_text_set(struct kmscon_text *txt, struct kmscon_font *font);
 void kmscon_text_unset(struct kmscon_text *txt);
-unsigned int kmscon_text_get_cols(struct kmscon_text *txt);
-unsigned int kmscon_text_get_rows(struct kmscon_text *txt);
+unsigned int kmscon_text_get_cols(struct kmscon_text *txt, unsigned int font_width);
+unsigned int kmscon_text_get_rows(struct kmscon_text *txt, unsigned int font_height);
 
 enum Orientation kmscon_text_get_orientation(struct kmscon_text *txt);
 void kmscon_text_resize(struct kmscon_text *txt, unsigned int cols, unsigned int rows);

@@ -8,12 +8,21 @@
 #include <stdint.h>
 #include <string.h>
 #include "../src/render/text.c" /* pull in kmscon_text_set without changing meson */
+#include "video/video.h"
 
 /* --- Stubs for external functions used by kmscon_text_set --- */
 void kmscon_font_ref(struct kmscon_font *font) {}
 void kmscon_font_unref(struct kmscon_font *font) {}
 void display_ref(struct display *disp) {}
 void display_unref(struct display *disp) {}
+unsigned int display_get_height(struct display *disp)
+{
+	return 0;
+}
+unsigned int display_get_width(struct display *disp)
+{
+	return 0;
+}
 
 static int dummy_set_calls;
 static int dummy_unset_calls;
@@ -40,7 +49,6 @@ int main(void)
 {
 	struct kmscon_text txt;
 	struct kmscon_font fake_font;
-	struct display *fake_disp = (struct display *)0x1;
 	int ret;
 
 	memset(&txt, 0, sizeof(txt));
@@ -48,11 +56,10 @@ int main(void)
 	txt.ops = &dummy_ops;
 
 	/* set calls backend set */
-	ret = kmscon_text_set(&txt, &fake_font, fake_disp);
+	ret = kmscon_text_set(&txt, &fake_font);
 	assert(ret == 0);
 	assert(dummy_set_calls == 1);
 	assert(txt.font == &fake_font);
-	assert(txt.disp == fake_disp);
 
 	/* unset calls backend unset and clears pointers */
 	kmscon_text_unset(&txt);
@@ -61,7 +68,7 @@ int main(void)
 	assert(txt.disp == NULL);
 
 	/* NULL font must return -EINVAL */
-	ret = kmscon_text_set(&txt, NULL, fake_disp);
+	ret = kmscon_text_set(&txt, NULL);
 	assert(ret == -EINVAL);
 	assert(dummy_set_calls == 1); /* not called again */
 

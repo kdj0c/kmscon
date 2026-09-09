@@ -28,15 +28,18 @@ unsigned int display_get_height(struct display *disp)
 #define FAKE_CELL_H 16
 
 /* Stub font metrics APIs used indirectly by text.c/text_bbulk.c */
-unsigned int kmscon_font_get_width(const struct kmscon_font *font)
+unsigned int kmscon_text_get_cols(struct kmscon_text *txt, unsigned int font_width)
 {
-	(void)font;
-	return FAKE_CELL_W;
+	(void)txt;
+	(void)font_width;
+	return 640 / FAKE_CELL_W;
 }
-unsigned int kmscon_font_get_height(const struct kmscon_font *font)
+
+unsigned int kmscon_text_get_rows(struct kmscon_text *txt, unsigned int font_height)
 {
-	(void)font;
-	return FAKE_CELL_H;
+	(void)txt;
+	(void)font_height;
+	return 480 / FAKE_CELL_H;
 }
 
 /* Stub font rendering APIs used by text_bbulk.c */

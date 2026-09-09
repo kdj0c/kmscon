@@ -142,13 +142,8 @@ static int bbulk_set(struct kmscon_text *txt)
 	if (!bb->sw || !bb->sh)
 		return -EINVAL;
 
-	if (txt->orientation == OR_NORMAL || txt->orientation == OR_UPSIDE_DOWN) {
-		txt->max_cols = bb->sw / FONT_WIDTH(txt);
-		txt->max_rows = bb->sh / FONT_HEIGHT(txt);
-	} else {
-		txt->max_rows = bb->sw / FONT_HEIGHT(txt);
-		txt->max_cols = bb->sh / FONT_WIDTH(txt);
-	}
+	txt->max_cols = kmscon_text_get_cols(txt, FONT_WIDTH(txt));
+	txt->max_rows = kmscon_text_get_rows(txt, FONT_HEIGHT(txt));
 	txt->cols = txt->max_cols;
 	txt->rows = txt->max_rows;
 	compute_border(txt);

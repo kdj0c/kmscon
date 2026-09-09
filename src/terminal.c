@@ -113,8 +113,6 @@ struct kmscon_terminal {
 #define BLINK_TIMER_NS (500 * 1000 * 1000) // Blinking interval 500ms
 #define BLINK_CURSOR_TYPING 1		   // After keypress, wait 1s before blinking the cursor
 
-static int font_set(struct kmscon_terminal *term);
-
 static void coord_to_cell(struct kmscon_terminal *term, int32_t x, int32_t y, unsigned int *posx,
 			  unsigned int *posy)
 {
@@ -521,11 +519,11 @@ static bool terminal_update_size_clone(struct kmscon_terminal *term)
 	{
 		unsigned int cols, rows;
 		scr = shl_dlist_entry(iter, struct screen, list);
-		cols = kmscon_text_get_cols(scr->txt);
+		cols = kmscon_text_get_cols(scr->txt, term->font->width);
 		if (cols && cols < min_cols)
 			min_cols = cols;
 
-		rows = kmscon_text_get_rows(scr->txt);
+		rows = kmscon_text_get_rows(scr->txt, term->font->height);
 		if (rows && rows < min_rows)
 			min_rows = rows;
 	}
@@ -555,8 +553,8 @@ static bool terminal_update_size_largest(struct kmscon_terminal *term)
 	shl_dlist_for_each(iter, &term->screens)
 	{
 		scr = shl_dlist_entry(iter, struct screen, list);
-		rows = kmscon_text_get_rows(scr->txt);
-		cols = kmscon_text_get_cols(scr->txt);
+		rows = kmscon_text_get_rows(scr->txt, term->font->height);
+		cols = kmscon_text_get_cols(scr->txt, term->font->width);
 		cells = rows * cols;
 		if (cells > max_cells) {
 			max_cells = cells;
@@ -567,8 +565,8 @@ static bool terminal_update_size_largest(struct kmscon_terminal *term)
 	shl_dlist_for_each(iter, &term->screens)
 	{
 		scr = shl_dlist_entry(iter, struct screen, list);
-		rows = kmscon_text_get_rows(scr->txt);
-		cols = kmscon_text_get_cols(scr->txt);
+		rows = kmscon_text_get_rows(scr->txt, term->font->height);
+		cols = kmscon_text_get_cols(scr->txt, term->font->width);
 		if (rows != term->rows || cols != term->cols)
 			disable_screen(scr);
 		else if (!scr->enabled) {
@@ -632,7 +630,7 @@ static int font_set(struct kmscon_terminal *term)
 	{
 		scr = shl_dlist_entry(iter, struct screen, list);
 
-		ret = kmscon_text_set(scr->txt, font, scr->disp);
+		ret = kmscon_text_set(scr->txt, font);
 		if (ret)
 			log_warning("cannot change text-renderer font: %d", ret);
 		refresh_hw_cursor(scr);
@@ -725,13 +723,13 @@ int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
 	else
 		be = "bbulk";
 
-	ret = kmscon_text_new(&scr->txt, be, term->conf->rotate);
+	ret = kmscon_text_new(&scr->txt, be, term->conf->rotate, scr->disp);
 	if (ret) {
 		log_error("cannot create text-renderer");
 		goto err_cb;
 	}
 
-	ret = kmscon_text_set(scr->txt, term->font, scr->disp);
+	ret = kmscon_text_set(scr->txt, term->font);
 	if (ret) {
 		log_error("cannot set text-renderer parameters");
 		goto err_text;

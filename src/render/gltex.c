@@ -222,13 +222,8 @@ static int gltex_set(struct kmscon_text *txt)
 	gt->sw = display_get_width(txt->disp);
 	gt->sh = display_get_height(txt->disp);
 
-	if (txt->orientation == OR_NORMAL || txt->orientation == OR_UPSIDE_DOWN) {
-		txt->max_cols = gt->sw / FONT_WIDTH(txt);
-		txt->max_rows = gt->sh / FONT_HEIGHT(txt);
-	} else {
-		txt->max_cols = gt->sh / FONT_WIDTH(txt);
-		txt->max_rows = gt->sw / FONT_HEIGHT(txt);
-	}
+	txt->max_cols = kmscon_text_get_cols(txt, FONT_WIDTH(txt));
+	txt->max_rows = kmscon_text_get_rows(txt, FONT_HEIGHT(txt));
 	txt->cols = txt->max_cols;
 	txt->rows = txt->max_rows;
 	compute_advance_and_offset(txt);
