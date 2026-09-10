@@ -192,19 +192,17 @@ struct addr_book *issue_network_gen_book(void)
 void issue_network_free_book(struct addr_book *book)
 {
 	struct ip_addr *ip;
-	struct shl_dlist *iter, *tmp;
+	struct shl_dlist *tmp;
 
 	if (!book)
 		return;
 
-	shl_dlist_for_each_safe(iter, tmp, &book->ipv4)
+	shl_dlist_for_each_entry_safe(ip, tmp, &book->ipv4, list)
 	{
-		ip = shl_dlist_entry(iter, struct ip_addr, list);
 		free(ip);
 	}
-	shl_dlist_for_each_safe(iter, tmp, &book->ipv6)
+	shl_dlist_for_each_entry_safe(ip, tmp, &book->ipv6, list)
 	{
-		ip = shl_dlist_entry(iter, struct ip_addr, list);
 		free(ip);
 	}
 	free(book);
@@ -275,7 +273,7 @@ static void add_ip_to_interface(struct shl_dlist *ifaces, struct ip_addr *ip)
  */
 char *issue_network_get_all_ip(struct addr_book *book, bool filter)
 {
-	struct shl_dlist *iter, *tmp;
+	struct shl_dlist *tmp;
 	struct ip_addr *ip;
 	struct shl_dlist head;
 	struct interface *iface;
@@ -326,10 +324,9 @@ char *issue_network_get_all_ip(struct addr_book *book, bool filter)
 	}
 	*s = '\0';
 
-	shl_dlist_for_each_safe(iter, tmp, &head)
+	shl_dlist_for_each_entry_safe(iface, tmp, &head, list)
 	{
-		iface = shl_dlist_entry(iter, struct interface, list);
-		shl_dlist_unlink(iter);
+		shl_dlist_unlink(&iface->list);
 		free(iface);
 	}
 	return out;

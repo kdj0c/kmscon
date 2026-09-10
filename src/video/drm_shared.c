@@ -1437,7 +1437,7 @@ int drm_video_hotplug(struct video *video, bool read_dpms, bool modeset)
 	struct display *disp;
 	struct drm_display *ddrm;
 	int ret, i, dpms;
-	struct shl_dlist *iter, *tmp;
+	struct shl_dlist *tmp;
 	bool needs_modeset = modeset;
 	bool found = false;
 
@@ -1501,9 +1501,8 @@ int drm_video_hotplug(struct video *video, bool read_dpms, bool modeset)
 
 	drmModeFreeResources(res);
 
-	shl_dlist_for_each_safe(iter, tmp, &video->displays)
+	shl_dlist_for_each_entry_safe(disp, tmp, &video->displays, list)
 	{
-		disp = shl_dlist_entry(iter, struct display, list);
 		if (!(disp->flags & DISPLAY_AVAILABLE))
 			display_unbind(disp);
 	}

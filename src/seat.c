@@ -125,7 +125,7 @@ static void kmscon_session_unregister(struct kmscon_session *sess);
 static void activate_display(struct kmscon_display *d)
 {
 	int ret;
-	struct shl_dlist *iter, *tmp;
+	struct shl_dlist *tmp;
 	struct kmscon_session *s;
 	struct kmscon_seat *seat = d->seat;
 
@@ -147,9 +147,8 @@ static void activate_display(struct kmscon_display *d)
 		/* Reset DPMS timer when display becomes active */
 		seat_dpms_reset_timer(seat);
 
-		shl_dlist_for_each_safe(iter, tmp, &seat->sessions)
+		shl_dlist_for_each_entry_safe(s, tmp, &seat->sessions, list)
 		{
-			s = shl_dlist_entry(iter, struct kmscon_session, list);
 			terminal_add_display(s->term, d->disp);
 		}
 		if (seat->current_sess)
@@ -159,7 +158,7 @@ static void activate_display(struct kmscon_display *d)
 
 static int seat_go_foreground(struct kmscon_seat *seat)
 {
-	struct shl_dlist *iter, *tmp;
+	struct shl_dlist *tmp;
 	struct kmscon_video *vid;
 	struct kmscon_display *d;
 	int ret;
@@ -171,9 +170,8 @@ static int seat_go_foreground(struct kmscon_seat *seat)
 
 	seat->foreground = true;
 
-	shl_dlist_for_each_safe(iter, tmp, &seat->videos)
+	shl_dlist_for_each_entry_safe(vid, tmp, &seat->videos, list)
 	{
-		vid = shl_dlist_entry(iter, struct kmscon_video, list);
 		if (!vid->video) {
 			ret = seat_video_init(vid);
 			if (ret) {
@@ -332,7 +330,7 @@ static struct kmscon_display *seat_get_display(struct kmscon_seat *seat, struct 
 
 static void _seat_remove_display(struct kmscon_seat *seat, struct kmscon_display *d)
 {
-	struct shl_dlist *iter, *tmp;
+	struct shl_dlist *tmp;
 	struct kmscon_session *s;
 
 	log_debug("remove display %s from seat %s", display_name(d->disp), seat->name);
@@ -340,9 +338,8 @@ static void _seat_remove_display(struct kmscon_seat *seat, struct kmscon_display
 	shl_dlist_unlink(&d->list);
 
 	if (d->activated) {
-		shl_dlist_for_each_safe(iter, tmp, &seat->sessions)
+		shl_dlist_for_each_entry_safe(s, tmp, &seat->sessions, list)
 		{
-			s = shl_dlist_entry(iter, struct kmscon_session, list);
 			terminal_rm_display(s->term, d->disp);
 		}
 	}
@@ -1003,7 +1000,7 @@ static void kmscon_seat_remove_video(struct kmscon_seat *seat, void *data)
 {
 	struct kmscon_video *vid = data;
 	struct kmscon_display *d;
-	struct shl_dlist *iter, *tmp;
+	struct shl_dlist *tmp;
 
 	if (!seat || !vid)
 		return;
@@ -1014,9 +1011,8 @@ static void kmscon_seat_remove_video(struct kmscon_seat *seat, void *data)
 	shl_dlist_unlink(&vid->list);
 
 	if (vid->video) {
-		shl_dlist_for_each_safe(iter, tmp, &seat->displays)
+		shl_dlist_for_each_entry_safe(d, tmp, &seat->displays, list)
 		{
-			d = shl_dlist_entry(iter, struct kmscon_display, list);
 			if (display_video(d->disp) == vid->video)
 				_seat_remove_display(seat, d);
 		}

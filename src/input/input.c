@@ -719,7 +719,7 @@ void input_sleep(struct input *input)
 SHL_EXPORT
 void input_wake_up(struct input *input)
 {
-	struct shl_dlist *iter, *tmp;
+	struct shl_dlist *tmp;
 	struct input_dev *dev;
 	int ret;
 
@@ -733,10 +733,8 @@ void input_wake_up(struct input *input)
 	log_debug("waking up");
 
 	/* Wake up already-probed devices */
-	shl_dlist_for_each_safe(iter, tmp, &input->devices)
+	shl_dlist_for_each_entry_safe(dev, tmp, &input->devices, list)
 	{
-		dev = shl_dlist_entry(iter, struct input_dev, list);
-
 		if (!dev->initialized) {
 			ret = input_init_dev(input, dev);
 			if (ret)

@@ -604,7 +604,7 @@ void uterm_monitor_ref(struct uterm_monitor *mon)
 SHL_EXPORT
 void uterm_monitor_unref(struct uterm_monitor *mon)
 {
-	struct shl_dlist *iter, *tmp;
+	struct shl_dlist *tmp;
 	struct uterm_monitor_dev *dev;
 
 	if (!mon || !mon->ref || --mon->ref)
@@ -615,9 +615,8 @@ void uterm_monitor_unref(struct uterm_monitor *mon)
 	udev_unref(mon->udev);
 	ev_eloop_unref(mon->eloop);
 
-	shl_dlist_for_each_safe(iter, tmp, &mon->devices)
+	shl_dlist_for_each_entry_safe(dev, tmp, &mon->devices, list)
 	{
-		dev = shl_dlist_entry(iter, struct uterm_monitor_dev, list);
 		mon_free_dev(dev);
 	}
 
