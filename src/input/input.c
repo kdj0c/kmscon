@@ -370,7 +370,7 @@ static void input_free_dev(struct input_dev *dev)
 {
 	log_debug("free device %s", dev->node);
 	input_sleep_dev(dev);
-	shl_dlist_unlink(&dev->list);
+	dlist_unlink(&dev->list);
 	if (dev->capabilities & DEVICE_HAS_KEYS)
 		input_exit_keyboard(dev);
 	free(dev->node);
@@ -417,7 +417,7 @@ err_close:
 	ev_eloop_rm_fd(dev->fd);
 	input_close_dev(dev);
 err:
-	shl_dlist_unlink(&dev->list);
+	dlist_unlink(&dev->list);
 	free(dev->node);
 	free(dev);
 	return ret;
@@ -438,7 +438,7 @@ static struct input_dev *input_new_dev(struct input *input, const char *node)
 	if (!dev->node)
 		goto err_free;
 
-	shl_dlist_link(&input->devices, &dev->list);
+	dlist_link(&input->devices, &dev->list);
 	return dev;
 
 err_free:
@@ -471,7 +471,7 @@ int input_new(struct input **out, struct ev_eloop *eloop)
 	memset(input, 0, sizeof(*input));
 	input->ref = 1;
 	input->eloop = eloop;
-	shl_dlist_init(&input->devices);
+	dlist_init(&input->devices);
 
 	ret = shl_hook_new(&input->key_hook);
 	if (ret)
@@ -522,7 +522,7 @@ int input_update_keymap(struct input *input, const char *model, const char *layo
 	struct input_dev *dev;
 
 	if (input->ctx) {
-		shl_dlist_for_each_entry(dev, &input->devices, list)
+		dlist_for_each_entry(dev, &input->devices, list)
 		{
 			if (dev->capabilities & DEVICE_HAS_KEYS) {
 				input_sleep_dev(dev);
@@ -533,7 +533,7 @@ int input_update_keymap(struct input *input, const char *model, const char *layo
 	uxkb_compose_table_destroy(input);
 	uxkb_layout_destroy(input);
 	uxkb_layout_init(input, model, layout, variant, options, NULL);
-	shl_dlist_for_each_entry(dev, &input->devices, list)
+	dlist_for_each_entry(dev, &input->devices, list)
 	{
 		if (dev->capabilities & DEVICE_HAS_KEYS) {
 			input_init_keyboard(dev);
@@ -582,7 +582,7 @@ void input_unref(struct input *input)
 	log_debug("free object %p", input);
 
 	while (input->devices.next != &input->devices) {
-		dev = shl_dlist_entry(input->devices.next, struct input_dev, list);
+		dev = dlist_entry(input->devices.next, struct input_dev, list);
 		input_free_dev(dev);
 	}
 
@@ -622,7 +622,7 @@ void input_remove_dev(struct input *input, void *data)
 	if (!input || !data)
 		return;
 
-	shl_dlist_for_each_entry(dev, &input->devices, list)
+	dlist_for_each_entry(dev, &input->devices, list)
 	{
 		if (dev == data) {
 			input_free_dev(dev);
@@ -687,7 +687,7 @@ unsigned int input_get_mods(struct input *input)
 
 	if (!input)
 		return 0;
-	shl_dlist_for_each_entry(dev, &input->devices, list)
+	dlist_for_each_entry(dev, &input->devices, list)
 	{
 		if (dev->capabilities & DEVICE_HAS_KEYS)
 			mods |= uxkb_dev_get_mods(dev);
@@ -710,7 +710,7 @@ void input_sleep(struct input *input)
 
 	log_debug("going to sleep");
 
-	shl_dlist_for_each_entry(dev, &input->devices, list)
+	dlist_for_each_entry(dev, &input->devices, list)
 	{
 		input_sleep_dev(dev);
 	}
@@ -719,7 +719,7 @@ void input_sleep(struct input *input)
 SHL_EXPORT
 void input_wake_up(struct input *input)
 {
-	struct shl_dlist *tmp;
+	struct dlist *tmp;
 	struct input_dev *dev;
 	int ret;
 
@@ -733,7 +733,7 @@ void input_wake_up(struct input *input)
 	log_debug("waking up");
 
 	/* Wake up already-probed devices */
-	shl_dlist_for_each_entry_safe(dev, tmp, &input->devices, list)
+	dlist_for_each_entry_safe(dev, tmp, &input->devices, list)
 	{
 		if (!dev->initialized) {
 			ret = input_init_dev(input, dev);
@@ -775,7 +775,7 @@ void input_set_leds(struct input *input, unsigned int scroll_lock, unsigned int 
 	if (!input)
 		return;
 
-	shl_dlist_for_each_entry(dev, &input->devices, list)
+	dlist_for_each_entry(dev, &input->devices, list)
 	{
 		uxkb_dev_set_leds(dev, scroll_lock, num_lock, caps_lock);
 	}

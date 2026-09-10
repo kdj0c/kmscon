@@ -84,7 +84,7 @@ struct input_pointer {
 };
 
 struct input_dev {
-	struct shl_dlist list;
+	struct dlist list;
 	struct input *input;
 
 	bool initialized;
@@ -132,7 +132,7 @@ struct input {
 	int32_t pointer_max_y;
 	struct ev_timer *hide_pointer;
 
-	struct shl_dlist devices;
+	struct dlist devices;
 };
 
 static inline bool input_bit_is_set(const unsigned long *array, int bit)

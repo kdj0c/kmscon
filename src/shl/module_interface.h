@@ -49,7 +49,7 @@ struct shl_module_info {
 
 struct shl_module {
 	struct shl_module_info info;
-	struct shl_dlist list;
+	struct dlist list;
 	unsigned long ref;
 	bool loaded;
 	void *handle;

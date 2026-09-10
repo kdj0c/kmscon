@@ -70,7 +70,7 @@ static int blit_outputs(struct video *video)
 	struct display *display;
 	int ret;
 
-	shl_dlist_for_each_entry(display, &video->displays, list)
+	dlist_for_each_entry(display, &video->displays, list)
 	{
 		log_notice("Activating display %s...", display_name(display));
 		ret = display_set_dpms(display, DPMS_ON);
@@ -78,7 +78,7 @@ static int blit_outputs(struct video *video)
 			log_err("Cannot set DPMS to ON: %d", ret);
 	}
 
-	shl_dlist_for_each_entry(display, &video->displays, list)
+	dlist_for_each_entry(display, &video->displays, list)
 	{
 		if (display_get_state(display) != DISPLAY_ACTIVE)
 			continue;
@@ -111,7 +111,7 @@ static int list_outputs(struct video *video)
 
 	log_notice("List of Outputs:");
 
-	shl_dlist_for_each_entry(display, &video->displays, list)
+	dlist_for_each_entry(display, &video->displays, list)
 	{
 		log_notice(" display %s active %d", display->name, display_get_state(display));
 	}

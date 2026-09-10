@@ -59,7 +59,7 @@
 #define LOG_SUBSYSTEM "text_gltex"
 
 struct atlas {
-	struct shl_dlist list;
+	struct dlist list;
 
 	GLuint tex;
 	unsigned int height;
@@ -94,7 +94,7 @@ struct gltex {
 	unsigned int max_tex_size;
 	bool previous_overflow;
 
-	struct shl_dlist atlases;
+	struct dlist atlases;
 
 	GLfloat advance_x;
 	GLfloat advance_y;
@@ -191,7 +191,7 @@ static int gltex_set(struct kmscon_text *txt)
 		return ret;
 
 	memset(gt, 0, sizeof(*gt));
-	shl_dlist_init(&gt->atlases);
+	dlist_init(&gt->atlases);
 
 	ret = shl_hashtable_new(&gt->glyphs, shl_direct_hash, shl_direct_equal, free_glyph);
 	if (ret)
@@ -250,7 +250,7 @@ static void gltex_unset(struct kmscon_text *txt)
 {
 	struct gltex *gt = txt->data;
 	int ret;
-	struct shl_dlist *iter;
+	struct dlist *iter;
 	struct atlas *atlas;
 	bool gl = true;
 
@@ -262,10 +262,10 @@ static void gltex_unset(struct kmscon_text *txt)
 
 	shl_hashtable_free(gt->glyphs);
 
-	while (!shl_dlist_empty(&gt->atlases)) {
+	while (!dlist_empty(&gt->atlases)) {
 		iter = gt->atlases.next;
-		shl_dlist_unlink(iter);
-		atlas = shl_dlist_entry(iter, struct atlas, list);
+		dlist_unlink(iter);
+		atlas = dlist_entry(iter, struct atlas, list);
 
 		free(atlas->cache_pos);
 		free(atlas->cache_texpos);
@@ -294,8 +294,8 @@ static struct atlas *get_atlas(struct kmscon_text *txt, unsigned int num)
 	GLenum err;
 
 	/* check whether the last added atlas has still room for one glyph */
-	if (!shl_dlist_empty(&gt->atlases)) {
-		atlas = shl_dlist_entry(gt->atlases.next, struct atlas, list);
+	if (!dlist_empty(&gt->atlases)) {
+		atlas = dlist_entry(gt->atlases.next, struct atlas, list);
 		if (atlas->fill + num <= atlas->count)
 			return atlas;
 	}
@@ -371,7 +371,7 @@ try_next:
 	atlas->advance_htex = 1.0 / atlas->width * FONT_WIDTH(txt);
 	atlas->advance_vtex = 1.0 / atlas->height * FONT_HEIGHT(txt);
 
-	shl_dlist_link(&gt->atlases, &atlas->list);
+	dlist_link(&gt->atlases, &atlas->list);
 	return atlas;
 
 err_mem:
@@ -498,7 +498,7 @@ static int gltex_prepare(struct kmscon_text *txt, struct tsm_screen_attr *attr)
 	if (ret)
 		return ret;
 
-	shl_dlist_for_each_entry(atlas, &gt->atlases, list)
+	dlist_for_each_entry(atlas, &gt->atlases, list)
 	{
 		atlas->cache_num = 0;
 	}
@@ -717,7 +717,7 @@ static int gltex_render(struct kmscon_text *txt)
 	glActiveTexture(GL_TEXTURE0);
 	glUniform1i(gt->uni_atlas, 0);
 
-	shl_dlist_for_each_entry(atlas, &gt->atlases, list)
+	dlist_for_each_entry(atlas, &gt->atlases, list)
 	{
 		if (!atlas->cache_num)
 			continue;

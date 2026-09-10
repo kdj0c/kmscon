@@ -48,7 +48,7 @@
 #define LOG_SUBSYSTEM "monitor"
 
 struct uterm_monitor_dev {
-	struct shl_dlist list;
+	struct dlist list;
 	struct uterm_monitor *mon;
 	unsigned int type;
 	unsigned int flags;
@@ -67,7 +67,7 @@ struct uterm_monitor {
 	struct ev_fd *umon_fd;
 
 	char *seat_name;
-	struct shl_dlist devices;
+	struct dlist devices;
 };
 
 static void mon_new_dev(struct uterm_monitor *mon, unsigned int type, unsigned int flags,
@@ -87,7 +87,7 @@ static void mon_new_dev(struct uterm_monitor *mon, unsigned int type, unsigned i
 	if (!dev->node)
 		goto err_free;
 
-	shl_dlist_link(&mon->devices, &dev->list);
+	dlist_link(&mon->devices, &dev->list);
 
 	mon->cb.new_dev(node, type, flags, mon->data, dev);
 
@@ -102,7 +102,7 @@ static void mon_free_dev(struct uterm_monitor_dev *dev)
 {
 	log_debug("free device %s on %s", dev->node, dev->mon->seat_name);
 
-	shl_dlist_unlink(&dev->list);
+	dlist_unlink(&dev->list);
 
 	dev->mon->cb.free_dev(dev->mon->data, dev->type, dev->data);
 
@@ -120,7 +120,7 @@ static struct uterm_monitor_dev *monitor_find_dev(struct uterm_monitor *mon,
 	if (!node)
 		return NULL;
 
-	shl_dlist_for_each_entry(sdev, &mon->devices, list)
+	dlist_for_each_entry(sdev, &mon->devices, list)
 	{
 		if (!strcmp(node, sdev->node))
 			return sdev;
@@ -505,7 +505,7 @@ int uterm_monitor_new(struct uterm_monitor **out, struct ev_eloop *eloop,
 	mon->eloop = eloop;
 	mon->cb = *cb;
 	mon->data = data;
-	shl_dlist_init(&mon->devices);
+	dlist_init(&mon->devices);
 
 	mon->udev = udev_new();
 	if (!mon->udev) {
@@ -604,7 +604,7 @@ void uterm_monitor_ref(struct uterm_monitor *mon)
 SHL_EXPORT
 void uterm_monitor_unref(struct uterm_monitor *mon)
 {
-	struct shl_dlist *tmp;
+	struct dlist *tmp;
 	struct uterm_monitor_dev *dev;
 
 	if (!mon || !mon->ref || --mon->ref)
@@ -615,7 +615,7 @@ void uterm_monitor_unref(struct uterm_monitor *mon)
 	udev_unref(mon->udev);
 	ev_eloop_unref(mon->eloop);
 
-	shl_dlist_for_each_entry_safe(dev, tmp, &mon->devices, list)
+	dlist_for_each_entry_safe(dev, tmp, &mon->devices, list)
 	{
 		mon_free_dev(dev);
 	}

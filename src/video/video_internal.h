@@ -84,7 +84,7 @@ struct video_ops {
 
 struct display {
 	char *name;
-	struct shl_dlist list;
+	struct dlist list;
 	unsigned long ref;
 	unsigned int flags;
 	unsigned int width;
@@ -123,7 +123,7 @@ struct video {
 	struct ev_eloop *eloop;
 	struct shl_register_record *record;
 
-	struct shl_dlist displays;
+	struct dlist displays;
 	struct video_cb *cb;
 	void *cb_data;
 

@@ -449,7 +449,7 @@ static void show_displays(struct video *video)
 	if (!video_is_awake(video))
 		return;
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		if (!display_is_online(disp))
 			continue;

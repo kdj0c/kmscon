@@ -34,11 +34,11 @@ struct shl_lru {
 	unsigned int max_size;
 	unsigned int size;
 	struct htable tbl;
-	struct shl_dlist list;
+	struct dlist list;
 };
 
 struct shl_lru_entry {
-	struct shl_dlist list;
+	struct dlist list;
 	uint64_t key;
 	void *value;
 };
@@ -64,7 +64,7 @@ static inline struct shl_lru *shl_lru_new(unsigned int max_size)
 
 	lru->max_size = max_size;
 	lru->size = 0;
-	shl_dlist_init(&lru->list);
+	dlist_init(&lru->list);
 	htable_init(&lru->tbl, shl_lru_rehash, lru);
 
 	return lru;
@@ -100,8 +100,8 @@ static inline void *shl_lru_get(struct shl_lru *lru, uint64_t key)
 	     entry = htable_nextval(&lru->tbl, &i, key)) {
 		if (key == entry->key) {
 			/* Put this entry at the top of the list */
-			shl_dlist_unlink(&entry->list);
-			shl_dlist_link(&lru->list, &entry->list);
+			dlist_unlink(&entry->list);
+			dlist_link(&lru->list, &entry->list);
 			return entry->value;
 		}
 	}
@@ -113,13 +113,13 @@ static inline int shl_lru_evict(struct shl_lru *lru)
 	struct shl_lru_entry *last, *entry;
 	struct htable_iter i;
 
-	last = shl_dlist_last(&lru->list, struct shl_lru_entry, list);
+	last = dlist_last(&lru->list, struct shl_lru_entry, list);
 
 	for (entry = htable_firstval(&lru->tbl, &i, last->key); entry;
 	     entry = htable_nextval(&lru->tbl, &i, last->key)) {
 		if (last == entry) {
 			htable_delval(&lru->tbl, &i);
-			shl_dlist_unlink(&last->list);
+			dlist_unlink(&last->list);
 			free(entry->value);
 			free(entry);
 			lru->size--;
@@ -150,7 +150,7 @@ static inline int shl_lru_insert(struct shl_lru *lru, uint64_t key, void *value)
 		free(entry);
 		return -ENOMEM;
 	}
-	shl_dlist_link(&lru->list, &entry->list);
+	dlist_link(&lru->list, &entry->list);
 	lru->size++;
 	return 0;
 }

@@ -39,7 +39,7 @@
 
 #define LOG_SUBSYSTEM "module"
 
-static struct shl_dlist module_list = SHL_DLIST_INIT(module_list);
+static struct dlist module_list = SHL_DLIST_INIT(module_list);
 
 int shl_module_open(struct shl_module **out, const char *file)
 {
@@ -181,7 +181,7 @@ void kmscon_load_modules(void)
 
 	log_debug("loading global modules from %s", BUILD_MODULE_DIR);
 
-	if (!shl_dlist_empty(&module_list)) {
+	if (!dlist_empty(&module_list)) {
 		log_error("trying to load global modules twice");
 		return;
 	}
@@ -237,7 +237,7 @@ void kmscon_load_modules(void)
 			continue;
 		}
 
-		shl_dlist_link(&module_list, &mod->list);
+		dlist_link(&module_list, &mod->list);
 	}
 
 	closedir(ent);
@@ -249,9 +249,9 @@ void kmscon_unload_modules(void)
 
 	log_debug("unloading modules");
 
-	while (!shl_dlist_empty(&module_list)) {
-		module = shl_dlist_entry(module_list.prev, struct shl_module, list);
-		shl_dlist_unlink(&module->list);
+	while (!dlist_empty(&module_list)) {
+		module = dlist_entry(module_list.prev, struct shl_module, list);
+		dlist_unlink(&module->list);
 		shl_module_unload(module);
 		shl_module_unref(module);
 	}

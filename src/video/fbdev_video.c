@@ -504,7 +504,7 @@ static void fb_video_sleep(struct video *video)
 {
 	struct display *disp;
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		if (!display_is_online(disp))
 			continue;
@@ -519,7 +519,7 @@ static int fb_video_wake_up(struct video *video)
 	int ret;
 
 	video->flags |= VIDEO_AWAKE;
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		if (!display_is_online(disp)) {
 			ret = display_activate_force(disp, false);

@@ -27,7 +27,7 @@ enum rating {
 };
 
 struct ip_addr {
-	struct shl_dlist list;
+	struct dlist list;
 	char addr[INET6_ADDRSTRLEN];
 	int quality;
 	char interface[IFNAMSIZ];
@@ -35,8 +35,8 @@ struct ip_addr {
 };
 
 struct addr_book {
-	struct shl_dlist ipv4;
-	struct shl_dlist ipv6;
+	struct dlist ipv4;
+	struct dlist ipv6;
 	int best_quality;
 };
 
@@ -118,9 +118,9 @@ static void parse_netlink_message(struct addr_book *book, struct nlmsghdr *nlh)
 		book->best_quality = ip->quality;
 
 	if (ifa->ifa_family == AF_INET6)
-		shl_dlist_link_tail(&book->ipv6, &ip->list);
+		dlist_link_tail(&book->ipv6, &ip->list);
 	else
-		shl_dlist_link_tail(&book->ipv4, &ip->list);
+		dlist_link_tail(&book->ipv4, &ip->list);
 }
 
 struct addr_book *issue_network_gen_book(void)
@@ -144,8 +144,8 @@ struct addr_book *issue_network_gen_book(void)
 	if (!book)
 		return NULL;
 
-	shl_dlist_init(&book->ipv4);
-	shl_dlist_init(&book->ipv6);
+	dlist_init(&book->ipv4);
+	dlist_init(&book->ipv6);
 
 	nl_fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (nl_fd < 0)
@@ -192,16 +192,16 @@ struct addr_book *issue_network_gen_book(void)
 void issue_network_free_book(struct addr_book *book)
 {
 	struct ip_addr *ip;
-	struct shl_dlist *tmp;
+	struct dlist *tmp;
 
 	if (!book)
 		return;
 
-	shl_dlist_for_each_entry_safe(ip, tmp, &book->ipv4, list)
+	dlist_for_each_entry_safe(ip, tmp, &book->ipv4, list)
 	{
 		free(ip);
 	}
-	shl_dlist_for_each_entry_safe(ip, tmp, &book->ipv6, list)
+	dlist_for_each_entry_safe(ip, tmp, &book->ipv6, list)
 	{
 		free(ip);
 	}
@@ -212,10 +212,10 @@ const char *issue_network_get_best_ip(struct addr_book *book, const char *interf
 {
 	struct ip_addr *ip;
 	struct ip_addr *best = NULL;
-	struct shl_dlist *head = ipv6 ? &book->ipv6 : &book->ipv4;
+	struct dlist *head = ipv6 ? &book->ipv6 : &book->ipv4;
 	bool filter = (interface && *interface);
 
-	shl_dlist_for_each_entry(ip, head, list)
+	dlist_for_each_entry(ip, head, list)
 	{
 		if (filter && strcmp(ip->interface, interface))
 			continue;
@@ -235,17 +235,17 @@ const char *issue_network_get_best_ip(struct addr_book *book, const char *interf
 #define MAX_ADDR_PER_IFACE 32
 
 struct interface {
-	struct shl_dlist list;
+	struct dlist list;
 	char name[IFNAMSIZ];
 	int n_addrs;
 	struct ip_addr *ips[MAX_ADDR_PER_IFACE];
 };
 
-static struct interface *get_interface(struct shl_dlist *ifaces, const char *name)
+static struct interface *get_interface(struct dlist *ifaces, const char *name)
 {
 	struct interface *iface;
 
-	shl_dlist_for_each_entry(iface, ifaces, list)
+	dlist_for_each_entry(iface, ifaces, list)
 	{
 		if (strcmp(iface->name, name) == 0)
 			return iface;
@@ -254,11 +254,11 @@ static struct interface *get_interface(struct shl_dlist *ifaces, const char *nam
 	if (!iface)
 		return NULL;
 	strncpy(iface->name, name, IFNAMSIZ);
-	shl_dlist_link_tail(ifaces, &iface->list);
+	dlist_link_tail(ifaces, &iface->list);
 	return iface;
 }
 
-static void add_ip_to_interface(struct shl_dlist *ifaces, struct ip_addr *ip)
+static void add_ip_to_interface(struct dlist *ifaces, struct ip_addr *ip)
 {
 	struct interface *iface;
 
@@ -273,28 +273,28 @@ static void add_ip_to_interface(struct shl_dlist *ifaces, struct ip_addr *ip)
  */
 char *issue_network_get_all_ip(struct addr_book *book, bool filter)
 {
-	struct shl_dlist *tmp;
+	struct dlist *tmp;
 	struct ip_addr *ip;
-	struct shl_dlist head;
+	struct dlist head;
 	struct interface *iface;
 	size_t remaining;
 	size_t len;
 	char *out;
 	char *s;
 
-	shl_dlist_init(&head);
+	dlist_init(&head);
 
 	/* Treat RAT_SITE as good as RAT_UNIVERSE, like agetty does */
 	if (book->best_quality == RAT_UNIVERSE)
 		book->best_quality = RAT_SITE;
 
-	shl_dlist_for_each_entry(ip, &book->ipv4, list)
+	dlist_for_each_entry(ip, &book->ipv4, list)
 	{
 		if (filter && ip->quality < book->best_quality)
 			continue;
 		add_ip_to_interface(&head, ip);
 	}
-	shl_dlist_for_each_entry(ip, &book->ipv6, list)
+	dlist_for_each_entry(ip, &book->ipv6, list)
 	{
 		if (filter && ip->quality < book->best_quality)
 			continue;
@@ -304,7 +304,7 @@ char *issue_network_get_all_ip(struct addr_book *book, bool filter)
 	out = malloc(BUF_SIZE);
 	s = out;
 	remaining = BUF_SIZE - 1;
-	shl_dlist_for_each_entry(iface, &head, list)
+	dlist_for_each_entry(iface, &head, list)
 	{
 		len = snprintf(s, remaining, "%s: ", iface->name);
 		s += len;
@@ -324,9 +324,9 @@ char *issue_network_get_all_ip(struct addr_book *book, bool filter)
 	}
 	*s = '\0';
 
-	shl_dlist_for_each_entry_safe(iface, tmp, &head, list)
+	dlist_for_each_entry_safe(iface, tmp, &head, list)
 	{
-		shl_dlist_unlink(&iface->list);
+		dlist_unlink(&iface->list);
 		free(iface);
 	}
 	return out;

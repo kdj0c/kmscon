@@ -138,7 +138,7 @@ int display_bind(struct display *disp)
 	if (!disp || !disp->video)
 		return -EINVAL;
 
-	shl_dlist_link_tail(&disp->video->displays, &disp->list);
+	dlist_link_tail(&disp->video->displays, &disp->list);
 	display_ref(disp);
 
 	return 0;
@@ -161,7 +161,7 @@ void display_unbind(struct display *disp)
 		return;
 	if (disp->flags & DISPLAY_INUSE)
 		disp->video->cb->remove_disp(disp->video->cb_data, disp);
-	shl_dlist_unlink(&disp->list);
+	dlist_unlink(&disp->list);
 	display_unref(disp);
 }
 
@@ -450,7 +450,7 @@ int video_new(struct video **out, struct ev_eloop *eloop, int fd, const char *ba
 	video->cb_data = data;
 
 	video->eloop = eloop;
-	shl_dlist_init(&video->displays);
+	dlist_init(&video->displays);
 
 	ret = video->ops->init(video, fd);
 	if (ret)
@@ -490,8 +490,8 @@ void video_unref(struct video *video)
 
 	log_info("free device %p", video);
 
-	while (!shl_dlist_empty(&video->displays)) {
-		disp = shl_dlist_entry(video->displays.prev, struct display, list);
+	while (!dlist_empty(&video->displays)) {
+		disp = dlist_entry(video->displays.prev, struct display, list);
 		display_unbind(disp);
 	}
 

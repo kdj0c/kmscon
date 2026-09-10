@@ -54,7 +54,7 @@
 #define LOG_SUBSYSTEM "terminal"
 
 struct screen {
-	struct shl_dlist list;
+	struct dlist list;
 	struct kmscon_terminal *term;
 	struct display *disp;
 	struct kmscon_text *txt;
@@ -87,7 +87,7 @@ struct kmscon_terminal {
 	struct kmscon_conf_t *conf;
 	struct kmscon_session *session;
 
-	struct shl_dlist screens;
+	struct dlist screens;
 	unsigned int cols;
 	unsigned int rows;
 
@@ -348,7 +348,7 @@ static void redraw_all(struct kmscon_terminal *term)
 	if (!term->awake)
 		return;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		redraw_screen(scr);
 	}
@@ -358,7 +358,7 @@ static bool has_kms_display(struct kmscon_terminal *term)
 {
 	struct screen *scr;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		if (display_is_drm(scr->disp))
 			return true;
@@ -380,7 +380,7 @@ static void update_pointer_max_all(struct kmscon_terminal *term)
 	if (!term->awake)
 		return;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		if (!scr->enabled)
 			continue;
@@ -502,7 +502,7 @@ static bool terminal_update_size_clone(struct kmscon_terminal *term)
 	unsigned int min_cols = UINT_MAX;
 	unsigned int min_rows = UINT_MAX;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		unsigned int cols, rows;
 		cols = kmscon_text_get_cols(scr->txt, term->font->width);
@@ -535,7 +535,7 @@ static bool terminal_update_size_largest(struct kmscon_terminal *term)
 	unsigned int rows, cols, cells;
 	unsigned int max_cells = 0;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		rows = kmscon_text_get_rows(scr->txt, term->font->height);
 		cols = kmscon_text_get_cols(scr->txt, term->font->width);
@@ -546,7 +546,7 @@ static bool terminal_update_size_largest(struct kmscon_terminal *term)
 			term->rows = rows;
 		}
 	}
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		rows = kmscon_text_get_rows(scr->txt, term->font->height);
 		cols = kmscon_text_get_cols(scr->txt, term->font->width);
@@ -606,7 +606,7 @@ static bool terminal_update_size_scaled(struct kmscon_terminal *term)
 
 	terminal_update_size_clone(term);
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		unsigned int scaled_height;
 		unsigned int h, w;
@@ -623,7 +623,7 @@ static bool terminal_update_size_scaled(struct kmscon_terminal *term)
 			kmscon_text_set(scr->txt, term->font);
 		refresh_hw_cursor(scr);
 	}
-	return !shl_dlist_empty(&term->screens);
+	return !dlist_empty(&term->screens);
 }
 
 static bool terminal_update_size(struct kmscon_terminal *term)
@@ -641,7 +641,7 @@ static bool terminal_update_size(struct kmscon_terminal *term)
 	if (!ret)
 		return false;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		if (scr->enabled)
 			kmscon_text_resize(scr->txt, term->cols, term->rows);
@@ -675,7 +675,7 @@ static int font_set(struct kmscon_terminal *term)
 
 	term->cols = 0;
 	term->rows = 0;
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		ret = kmscon_text_set(scr->txt, font);
 		if (ret)
@@ -698,7 +698,7 @@ static void rotate_cw_all(struct kmscon_terminal *term)
 {
 	struct screen *scr;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		rotate_cw_screen(scr);
 	}
@@ -721,7 +721,7 @@ static void rotate_ccw_all(struct kmscon_terminal *term)
 {
 	struct screen *scr;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		rotate_ccw_screen(scr);
 	}
@@ -736,7 +736,7 @@ int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
 	const char *be;
 	bool opengl;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		if (scr->disp == disp)
 			return 0;
@@ -776,7 +776,7 @@ int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
 		goto err_text;
 	}
 
-	shl_dlist_link(&term->screens, &scr->list);
+	dlist_link(&term->screens, &scr->list);
 
 	log_notice("Display [%s] with backend [%s] text renderer [%s] font engine [%s]\n",
 		   display_name(disp), display_backend_name(disp), scr->txt->ops->name,
@@ -810,7 +810,7 @@ static void free_screen(struct screen *scr, bool update)
 	log_debug("destroying terminal screen %p", scr);
 	if (scr->hw_cursor)
 		display_destroy_cursor(scr->disp);
-	shl_dlist_unlink(&scr->list);
+	dlist_unlink(&scr->list);
 	kmscon_text_unref(scr->txt);
 	display_unregister_pageflip(scr->disp, display_pageflip, scr);
 	display_unref(scr->disp);
@@ -827,7 +827,7 @@ void terminal_rm_display(struct kmscon_terminal *term, struct display *disp)
 {
 	struct screen *scr;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		if (scr->disp == disp) {
 			log_debug("removed display %p from terminal %p", disp, term);
@@ -1065,7 +1065,7 @@ static void hw_cursor_show(struct kmscon_terminal *term, int32_t x, int32_t y)
 	int fw = term->font->width ? term->font->width : 1;
 	int fh = term->font->height ? term->font->height : 1;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		int32_t sx, sy;
 
@@ -1089,7 +1089,7 @@ static void hw_cursor_hide(struct kmscon_terminal *term)
 {
 	struct screen *scr;
 
-	shl_dlist_for_each_entry(scr, &term->screens, list)
+	dlist_for_each_entry(scr, &term->screens, list)
 	{
 		if (scr->hw_cursor)
 			display_hide_cursor(scr->disp);
@@ -1152,11 +1152,11 @@ static void pointer_event(struct input *input, struct input_pointer_event *ev, v
 
 static void rm_all_screens(struct kmscon_terminal *term)
 {
-	struct shl_dlist *iter;
+	struct dlist *iter;
 	struct screen *scr;
 
 	while ((iter = term->screens.next) != &term->screens) {
-		scr = shl_dlist_entry(iter, struct screen, list);
+		scr = dlist_entry(iter, struct screen, list);
 		free_screen(scr, false);
 	}
 
@@ -1221,7 +1221,7 @@ void terminal_refresh_displays(struct kmscon_terminal *term)
 void terminal_activate(struct kmscon_terminal *term)
 {
 	// Don't open pty yet if there are no screens.
-	if (shl_dlist_empty(&term->screens))
+	if (dlist_empty(&term->screens))
 		return;
 
 	term->awake = true;
@@ -1328,7 +1328,7 @@ struct kmscon_terminal *terminal_new(struct kmscon_session *session, unsigned in
 	term->session = session;
 	term->eloop = eloop;
 	term->input = input;
-	shl_dlist_init(&term->screens);
+	dlist_init(&term->screens);
 
 	term->conf_ctx = conf_ctx;
 	term->conf = conf_ctx_get_mem(term->conf_ctx);

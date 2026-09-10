@@ -147,7 +147,7 @@ static bool is_crtc_in_use(struct video *video, uint32_t crtc_id)
 	struct display *disp;
 	struct drm_display *ddrm;
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		ddrm = disp->data;
 		if (ddrm->crtc.id == crtc_id)
@@ -869,7 +869,7 @@ static int perform_modeset(struct video *video)
 
 	modeset_clear_cursor(req, vdrm->fd);
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		ddrm = disp->data;
 
@@ -897,7 +897,7 @@ static int perform_modeset(struct video *video)
 		goto err_commit;
 	}
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		display_ref(disp);
 	}
@@ -913,7 +913,7 @@ err_commit:
 	drmModeAtomicFree(req);
 
 	i = 0;
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		if (i++ >= num_prepared)
 			break;
@@ -935,7 +935,7 @@ static int legacy_modeset(struct video *video)
 	struct drm_display *ddrm;
 	int ret;
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		ddrm = disp->data;
 
@@ -980,11 +980,11 @@ static int try_modeset(struct video *video)
 	if (ret != -EAGAIN)
 		return ret;
 
-	if (shl_dlist_empty(&video->displays))
+	if (dlist_empty(&video->displays))
 		return ret;
 
 	/* Retry with default mode for all display */
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		ddrm = disp->data;
 		ddrm->previous_mode = ddrm->current_mode;
@@ -995,7 +995,7 @@ static int try_modeset(struct video *video)
 	else
 		ret = perform_modeset(video);
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		ddrm = disp->data;
 		if (ret)
@@ -1101,7 +1101,7 @@ static void display_event(int fd, unsigned int frame, unsigned int sec, unsigned
 	struct display *disp;
 	struct drm_display *ddrm;
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		ddrm = disp->data;
 		if (ddrm->crtc.id == crtc_id) {
@@ -1142,7 +1142,7 @@ static void do_pflips(struct ev_eloop *eloop, void *unused, void *data)
 	struct video *video = data;
 	struct display *disp;
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		if ((disp->flags & DISPLAY_PFLIP))
 			drm_display_pflip(disp);
@@ -1171,7 +1171,7 @@ static void io_event(struct ev_fd *fd, int mask, void *data)
 	if (ret)
 		return;
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		if ((disp->flags & DISPLAY_PFLIP))
 			drm_display_pflip(disp);
@@ -1188,7 +1188,7 @@ static void vt_timeout(struct ev_timer *timer, uint64_t exp, void *data)
 	r = drm_video_wake_up(video);
 	if (!r) {
 		ev_timer_update(vdrm->vt_timer, NULL);
-		shl_dlist_for_each_entry(disp, &video->displays, list)
+		dlist_for_each_entry(disp, &video->displays, list)
 		{
 			disp->video->cb->refresh_disp(disp->video->cb_data, disp);
 		}
@@ -1437,7 +1437,7 @@ int drm_video_hotplug(struct video *video, bool read_dpms, bool modeset)
 	struct display *disp;
 	struct drm_display *ddrm;
 	int ret, i, dpms;
-	struct shl_dlist *tmp;
+	struct dlist *tmp;
 	bool needs_modeset = modeset;
 	bool found = false;
 
@@ -1452,7 +1452,7 @@ int drm_video_hotplug(struct video *video, bool read_dpms, bool modeset)
 		return -EACCES;
 	}
 
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		disp->flags &= ~DISPLAY_AVAILABLE;
 	}
@@ -1466,7 +1466,7 @@ int drm_video_hotplug(struct video *video, bool read_dpms, bool modeset)
 			continue;
 		}
 
-		shl_dlist_for_each_entry(disp, &video->displays, list)
+		dlist_for_each_entry(disp, &video->displays, list)
 		{
 			ddrm = disp->data;
 
@@ -1501,12 +1501,12 @@ int drm_video_hotplug(struct video *video, bool read_dpms, bool modeset)
 
 	drmModeFreeResources(res);
 
-	shl_dlist_for_each_entry_safe(disp, tmp, &video->displays, list)
+	dlist_for_each_entry_safe(disp, tmp, &video->displays, list)
 	{
 		if (!(disp->flags & DISPLAY_AVAILABLE))
 			display_unbind(disp);
 	}
-	if (shl_dlist_empty(&video->displays)) {
+	if (dlist_empty(&video->displays)) {
 		// If there are no display available, drop drm master
 		drop_drm_master(vdrm);
 		goto finish_hotplug;
@@ -1517,7 +1517,7 @@ int drm_video_hotplug(struct video *video, bool read_dpms, bool modeset)
 		if (ret)
 			return ret;
 	}
-	shl_dlist_for_each_entry(disp, &video->displays, list)
+	dlist_for_each_entry(disp, &video->displays, list)
 	{
 		display_ready(disp);
 	}
@@ -1551,7 +1551,7 @@ void drm_video_sleep(struct video *video)
 	drmModeAtomicReq *req;
 
 	if (vdrm->master && !vdrm->legacy) {
-		shl_dlist_for_each_entry(disp, &video->displays, list)
+		dlist_for_each_entry(disp, &video->displays, list)
 		{
 			drm_display_wait_pflip(disp);
 		}

@@ -203,7 +203,7 @@ struct ev_eloop {
 	struct ev_fd *fd;
 	int idle_fd;
 
-	struct shl_dlist sig_list;
+	struct dlist sig_list;
 	struct shl_hook *chlds;
 	struct shl_hook *idlers;
 	struct shl_hook *pres;
@@ -290,7 +290,7 @@ struct ev_counter {
  * are called if the signal is caught.
  */
 struct ev_signal_shared {
-	struct shl_dlist list;
+	struct dlist list;
 
 	struct ev_fd *fd;
 	int signum;
@@ -406,7 +406,7 @@ static int signal_new(struct ev_signal_shared **out, struct ev_eloop *loop, int 
 		goto err_sig;
 
 	pthread_sigmask(SIG_BLOCK, &mask, NULL);
-	shl_dlist_link(&loop->sig_list, &sig->list);
+	dlist_link(&loop->sig_list, &sig->list);
 
 	*out = sig;
 	return 0;
@@ -436,7 +436,7 @@ static void signal_free(struct ev_signal_shared *sig)
 	if (!sig)
 		return;
 
-	shl_dlist_unlink(&sig->list);
+	dlist_unlink(&sig->list);
 	fd = sig->fd->fd;
 	ev_eloop_rm_fd(sig->fd);
 	close(fd);
@@ -578,7 +578,7 @@ int ev_eloop_new(struct ev_eloop **out)
 
 	memset(loop, 0, sizeof(*loop));
 	loop->ref = 1;
-	shl_dlist_init(&loop->sig_list);
+	dlist_init(&loop->sig_list);
 
 	loop->cur_fds_size = 32;
 	loop->cur_fds = malloc(sizeof(struct epoll_event) * loop->cur_fds_size);
@@ -703,7 +703,7 @@ void ev_eloop_unref(struct ev_eloop *loop)
 		ev_eloop_unregister_signal_cb(loop, SIGCHLD, sig_child, loop);
 
 	while (loop->sig_list.next != &loop->sig_list) {
-		sig = shl_dlist_entry(loop->sig_list.next, struct ev_signal_shared, list);
+		sig = dlist_entry(loop->sig_list.next, struct ev_signal_shared, list);
 		signal_free(sig);
 	}
 
@@ -2143,7 +2143,7 @@ static struct ev_signal_shared *ev_loop_get_signal(struct ev_eloop *loop, int si
 {
 	struct ev_signal_shared *sig;
 
-	shl_dlist_for_each_entry(sig, &loop->sig_list, list)
+	dlist_for_each_entry(sig, &loop->sig_list, list)
 	{
 		if (sig->signum == signum)
 			return sig;
@@ -2211,7 +2211,7 @@ void ev_eloop_unregister_signal_cb(struct ev_eloop *loop, int signum, ev_signal_
 	if (!loop)
 		return;
 
-	shl_dlist_for_each_entry(sig, &loop->sig_list, list)
+	dlist_for_each_entry(sig, &loop->sig_list, list)
 	{
 		if (sig->signum == signum) {
 			shl_hook_rm_cast(sig->hook, cb, data);
