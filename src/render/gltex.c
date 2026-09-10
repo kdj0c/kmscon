@@ -250,7 +250,7 @@ static void gltex_unset(struct kmscon_text *txt)
 {
 	struct gltex *gt = txt->data;
 	int ret;
-	struct dlist *iter;
+	struct dlist *tmp;
 	struct atlas *atlas;
 	bool gl = true;
 
@@ -262,10 +262,9 @@ static void gltex_unset(struct kmscon_text *txt)
 
 	shl_hashtable_free(gt->glyphs);
 
-	while (!dlist_empty(&gt->atlases)) {
-		iter = gt->atlases.next;
-		dlist_unlink(iter);
-		atlas = dlist_entry(iter, struct atlas, list);
+	dlist_for_each_entry_safe(atlas, tmp, &gt->atlases, list)
+	{
+		dlist_unlink(&atlas->list);
 
 		free(atlas->cache_pos);
 		free(atlas->cache_texpos);
@@ -294,11 +293,9 @@ static struct atlas *get_atlas(struct kmscon_text *txt, unsigned int num)
 	GLenum err;
 
 	/* check whether the last added atlas has still room for one glyph */
-	if (!dlist_empty(&gt->atlases)) {
-		atlas = dlist_entry(gt->atlases.next, struct atlas, list);
-		if (atlas->fill + num <= atlas->count)
-			return atlas;
-	}
+	atlas = dlist_first(&gt->atlases, struct atlas, list);
+	if (atlas && atlas->fill + num <= atlas->count)
+		return atlas;
 
 	/* all atlases are full so we have to create a new atlas */
 	atlas = malloc(sizeof(*atlas));

@@ -246,11 +246,12 @@ void kmscon_load_modules(void)
 void kmscon_unload_modules(void)
 {
 	struct shl_module *module;
+	struct dlist *tmp;
 
 	log_debug("unloading modules");
 
-	while (!dlist_empty(&module_list)) {
-		module = dlist_entry(module_list.prev, struct shl_module, list);
+	dlist_for_each_entry_safe(module, tmp, &module_list, list)
+	{
 		dlist_unlink(&module->list);
 		shl_module_unload(module);
 		shl_module_unref(module);

@@ -484,14 +484,15 @@ SHL_EXPORT
 void video_unref(struct video *video)
 {
 	struct display *disp;
+	struct dlist *tmp;
 
 	if (!video || !video->ref || --video->ref)
 		return;
 
 	log_info("free device %p", video);
 
-	while (!dlist_empty(&video->displays)) {
-		disp = dlist_entry(video->displays.prev, struct display, list);
+	dlist_for_each_entry_safe(disp, tmp, &video->displays, list)
+	{
 		display_unbind(disp);
 	}
 

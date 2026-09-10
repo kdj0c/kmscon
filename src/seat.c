@@ -817,6 +817,7 @@ void kmscon_seat_free(struct kmscon_seat *seat)
 {
 	struct kmscon_session *s;
 	struct kmscon_video *vid;
+	struct dlist *tmp;
 	int ret;
 
 	if (!seat)
@@ -828,12 +829,12 @@ void kmscon_seat_free(struct kmscon_seat *seat)
 	if (ret)
 		log_warning("destroying seat %s while still awake: %d", seat->name, ret);
 
-	while (!dlist_empty(&seat->sessions)) {
-		s = dlist_entry(seat->sessions.next, struct kmscon_session, list);
+	dlist_for_each_entry_safe(s, tmp, &seat->sessions, list)
+	{
 		kmscon_session_unregister(s);
 	}
-	while (!dlist_empty(&seat->videos)) {
-		vid = dlist_entry(seat->videos.next, struct kmscon_video, list);
+	dlist_for_each_entry_safe(vid, tmp, &seat->videos, list)
+	{
 		kmscon_seat_remove_video(seat, vid);
 	}
 
