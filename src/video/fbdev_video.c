@@ -37,6 +37,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include "fbdev_internal.h"
+#include "shl/dlist.h"
 #include "shl/log.h"
 #include "video.h"
 #include "video_internal.h"
@@ -501,43 +502,37 @@ static void fb_video_destroy(struct video *video)
 
 static void fb_video_sleep(struct video *video)
 {
-	struct display *iter;
-	struct shl_dlist *i;
+	struct display *disp;
 
-	shl_dlist_for_each(i, &video->displays)
+	shl_dlist_for_each_entry(disp, &video->displays, list)
 	{
-		iter = shl_dlist_entry(i, struct display, list);
-
-		if (!display_is_online(iter))
+		if (!display_is_online(disp))
 			continue;
 
-		display_deactivate_force(iter, true);
+		display_deactivate_force(disp, true);
 	}
 }
 
 static int fb_video_wake_up(struct video *video)
 {
-	struct display *iter;
-	struct shl_dlist *i;
+	struct display *disp;
 	int ret;
 
 	video->flags |= VIDEO_AWAKE;
-	shl_dlist_for_each(i, &video->displays)
+	shl_dlist_for_each_entry(disp, &video->displays, list)
 	{
-		iter = shl_dlist_entry(i, struct display, list);
-
-		if (!display_is_online(iter)) {
-			ret = display_activate_force(iter, false);
+		if (!display_is_online(disp)) {
+			ret = display_activate_force(disp, false);
 			if (ret)
 				return ret;
 		}
 
-		ret = display_activate_force(iter, true);
+		ret = display_activate_force(disp, true);
 		if (ret)
 			return ret;
 
-		if (iter->dpms != DPMS_UNKNOWN)
-			display_set_dpms(iter, iter->dpms);
+		if (disp->dpms != DPMS_UNKNOWN)
+			display_set_dpms(disp, disp->dpms);
 	}
 
 	return 0;

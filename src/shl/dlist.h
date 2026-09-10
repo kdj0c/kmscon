@@ -112,7 +112,9 @@ static inline bool shl_dlist_empty(struct shl_dlist *head)
 		 ? NULL                                                                            \
 		 : shl_dlist_entry((iter)->member.prev, typeof(*iter), list))
 
-#define shl_dlist_for_each(iter, head) for (iter = (head)->next; iter != (head); iter = iter->next)
+#define shl_dlist_for_each_entry(iter, head, member)                                               \
+	for (iter = shl_dlist_entry((head)->next, typeof(*iter), member); &iter->member != (head); \
+	     iter = shl_dlist_entry(iter->member.next, typeof(*iter), member))
 
 #define shl_dlist_for_each_but_one(iter, start, head)                                              \
 	for (iter = ((start)->next == (head)) ? (start)->next->next : (start)->next;               \

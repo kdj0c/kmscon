@@ -185,16 +185,14 @@ static int seat_go_foreground(struct kmscon_seat *seat)
 		}
 	}
 
-	shl_dlist_for_each(iter, &seat->videos)
+	shl_dlist_for_each_entry(vid, &seat->videos, list)
 	{
-		vid = shl_dlist_entry(iter, struct kmscon_video, list);
 		if (!vid->awake)
 			video_wake_up(vid->video);
 	}
 
-	shl_dlist_for_each(iter, &seat->displays)
+	shl_dlist_for_each_entry(d, &seat->displays, list)
 	{
-		d = shl_dlist_entry(iter, struct kmscon_display, list);
 		activate_display(d);
 	}
 
@@ -203,7 +201,6 @@ static int seat_go_foreground(struct kmscon_seat *seat)
 
 static int seat_go_background(struct kmscon_seat *seat)
 {
-	struct shl_dlist *iter;
 	struct kmscon_video *vid;
 
 	if (!seat->foreground)
@@ -211,9 +208,8 @@ static int seat_go_background(struct kmscon_seat *seat)
 	if (!seat->awake)
 		return -EBUSY;
 
-	shl_dlist_for_each(iter, &seat->videos)
+	shl_dlist_for_each_entry(vid, &seat->videos, list)
 	{
-		vid = shl_dlist_entry(iter, struct kmscon_video, list);
 		video_sleep(vid->video);
 	}
 
@@ -324,12 +320,10 @@ static void seat_new_display(void *data, struct display *disp)
 
 static struct kmscon_display *seat_get_display(struct kmscon_seat *seat, struct display *disp)
 {
-	struct shl_dlist *iter;
 	struct kmscon_display *d;
 
-	shl_dlist_for_each(iter, &seat->displays)
+	shl_dlist_for_each_entry(d, &seat->displays, list)
 	{
-		d = shl_dlist_entry(iter, struct kmscon_display, list);
 		if (d->disp == disp)
 			return d;
 	}
@@ -369,7 +363,6 @@ static void seat_remove_display(void *data, struct display *disp)
 
 static void seat_refresh_display(void *data, struct display *disp)
 {
-	struct shl_dlist *iter;
 	struct kmscon_session *s;
 	struct kmscon_display *d;
 	struct kmscon_seat *seat = data;
@@ -381,9 +374,8 @@ static void seat_refresh_display(void *data, struct display *disp)
 		return;
 
 	if (d->activated) {
-		shl_dlist_for_each(iter, &seat->sessions)
+		shl_dlist_for_each_entry(s, &seat->sessions, list)
 		{
-			s = shl_dlist_entry(iter, struct kmscon_session, list);
 			terminal_refresh_displays(s->term);
 		}
 	}
@@ -472,7 +464,6 @@ static void seat_trigger_reboot(struct kmscon_seat *seat)
 static void seat_dpms_timeout(struct ev_timer *timer, uint64_t num, void *data)
 {
 	struct kmscon_seat *seat = data;
-	struct shl_dlist *iter;
 	struct kmscon_display *d;
 	int ret;
 
@@ -482,10 +473,8 @@ static void seat_dpms_timeout(struct ev_timer *timer, uint64_t num, void *data)
 	log_debug("DPMS: blanking screen due to inactivity");
 
 	/* Turn off all displays */
-	shl_dlist_for_each(iter, &seat->displays)
+	shl_dlist_for_each_entry(d, &seat->displays, list)
 	{
-		d = shl_dlist_entry(iter, struct kmscon_display, list);
-
 		/* Only set DPMS on activated displays */
 		if (!d->activated)
 			continue;
@@ -501,7 +490,6 @@ static void seat_dpms_timeout(struct ev_timer *timer, uint64_t num, void *data)
 
 static void seat_dpms_reset_timer(struct kmscon_seat *seat)
 {
-	struct shl_dlist *iter;
 	struct kmscon_display *d;
 	struct itimerspec spec;
 	int ret;
@@ -512,10 +500,8 @@ static void seat_dpms_reset_timer(struct kmscon_seat *seat)
 	/* If screen is blanked, unblank it */
 	if (seat->dpms_blanked) {
 		log_debug("DPMS: unblanking screen");
-		shl_dlist_for_each(iter, &seat->displays)
+		shl_dlist_for_each_entry(d, &seat->displays, list)
 		{
-			d = shl_dlist_entry(iter, struct kmscon_display, list);
-
 			/* Only set DPMS on activated displays */
 			if (!d->activated)
 				continue;
@@ -1083,7 +1069,6 @@ struct conf_ctx *kmscon_seat_get_conf(struct kmscon_seat *seat)
 static struct kmscon_session *kmscon_seat_new_session(struct kmscon_seat *seat)
 {
 	struct kmscon_session *sess;
-	struct shl_dlist *iter;
 	struct kmscon_display *d;
 
 	if (!seat)
@@ -1122,9 +1107,8 @@ static struct kmscon_session *kmscon_seat_new_session(struct kmscon_seat *seat)
 
 	++seat->session_count;
 
-	shl_dlist_for_each(iter, &seat->displays)
+	shl_dlist_for_each_entry(d, &seat->displays, list)
 	{
-		d = shl_dlist_entry(iter, struct kmscon_display, list);
 		terminal_add_display(sess->term, d->disp);
 	}
 	return sess;

@@ -46,6 +46,7 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include "drm_shared_internal.h"
+#include "shl/dlist.h"
 #include "shl/log.h"
 #include "shl/misc.h"
 #include "video.h"
@@ -443,28 +444,25 @@ static const struct display_ops drm_display_ops = {
 static void show_displays(struct video *video)
 {
 	int ret;
-	struct display *iter;
-	struct shl_dlist *i;
+	struct display *disp;
 
 	if (!video_is_awake(video))
 		return;
 
-	shl_dlist_for_each(i, &video->displays)
+	shl_dlist_for_each_entry(disp, &video->displays, list)
 	{
-		iter = shl_dlist_entry(i, struct display, list);
-
-		if (!display_is_online(iter))
+		if (!display_is_online(disp))
 			continue;
-		if (iter->dpms != DPMS_ON)
+		if (disp->dpms != DPMS_ON)
 			continue;
 
-		ret = drm3d_display_use(iter);
+		ret = drm3d_display_use(disp);
 		if (ret)
 			continue;
 
 		glClearColor(0, 0, 0, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
-		display_swap(iter);
+		display_swap(disp);
 	}
 }
 

@@ -41,6 +41,7 @@
 #include <xf86drmMode.h>
 #include "drm2d_internal.h"
 #include "drm_shared_internal.h"
+#include "shl/dlist.h"
 #include "shl/log.h"
 #include "video.h"
 #include "video_internal.h"
@@ -243,21 +244,18 @@ static const struct display_ops drm2d_display_ops = {
 
 static void show_displays(struct video *video)
 {
-	struct display *iter;
+	struct display *disp;
 	struct drm2d_display *d2d;
 	struct drm2d_rb *rb;
-	struct shl_dlist *i;
 
 	if (!video_is_awake(video))
 		return;
 
-	shl_dlist_for_each(i, &video->displays)
+	shl_dlist_for_each_entry(disp, &video->displays, list)
 	{
-		iter = shl_dlist_entry(i, struct display, list);
-
-		if (!display_is_online(iter))
+		if (!display_is_online(disp))
 			continue;
-		if (iter->dpms != DPMS_ON)
+		if (disp->dpms != DPMS_ON)
 			continue;
 
 		/* We use double-buffering so there might be no free back-buffer
@@ -266,10 +264,10 @@ static void show_displays(struct video *video)
 		 * tearing but that's acceptable as this is only called during
 		 * wakeup/sleep. */
 
-		d2d = iter->data;
+		d2d = disp->data;
 		rb = &d2d->rb[d2d->current_rb];
 		memset(rb->map, 0, rb->size);
-		drm_display_wait_pflip(iter);
+		drm_display_wait_pflip(disp);
 	}
 }
 

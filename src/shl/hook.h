@@ -137,14 +137,12 @@ static inline int shl_hook_add_single(struct shl_hook *hook, shl_hook_cb cb, voi
 				      bool oneshot)
 {
 	struct shl_hook_entry *entry;
-	struct shl_dlist *iter;
 
 	if (!hook || !cb)
 		return -EINVAL;
 
-	shl_dlist_for_each(iter, &hook->entries)
+	shl_dlist_for_each_entry(entry, &hook->entries, list)
 	{
-		entry = shl_dlist_entry(iter, struct shl_hook_entry, list);
 		if (entry->cb == cb && entry->data == data)
 			return 0;
 	}

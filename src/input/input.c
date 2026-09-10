@@ -519,13 +519,11 @@ SHL_EXPORT
 int input_update_keymap(struct input *input, const char *model, const char *layout,
 			const char *variant, const char *options)
 {
-	struct shl_dlist *iter;
 	struct input_dev *dev;
 
 	if (input->ctx) {
-		shl_dlist_for_each(iter, &input->devices)
+		shl_dlist_for_each_entry(dev, &input->devices, list)
 		{
-			dev = shl_dlist_entry(iter, struct input_dev, list);
 			if (dev->capabilities & DEVICE_HAS_KEYS) {
 				input_sleep_dev(dev);
 				input_exit_keyboard(dev);
@@ -535,9 +533,8 @@ int input_update_keymap(struct input *input, const char *model, const char *layo
 	uxkb_compose_table_destroy(input);
 	uxkb_layout_destroy(input);
 	uxkb_layout_init(input, model, layout, variant, options, NULL);
-	shl_dlist_for_each(iter, &input->devices)
+	shl_dlist_for_each_entry(dev, &input->devices, list)
 	{
-		dev = shl_dlist_entry(iter, struct input_dev, list);
 		if (dev->capabilities & DEVICE_HAS_KEYS) {
 			input_init_keyboard(dev);
 			if (input->awake)
@@ -620,15 +617,13 @@ void *input_add_dev(struct input *input, const char *node)
 SHL_EXPORT
 void input_remove_dev(struct input *input, void *data)
 {
-	struct shl_dlist *iter;
 	struct input_dev *dev;
 
 	if (!input || !data)
 		return;
 
-	shl_dlist_for_each(iter, &input->devices)
+	shl_dlist_for_each_entry(dev, &input->devices, list)
 	{
-		dev = shl_dlist_entry(iter, struct input_dev, list);
 		if (dev == data) {
 			input_free_dev(dev);
 			return;
@@ -687,15 +682,13 @@ void input_set_device_ops(struct input *input, uterm_open_cb open_cb, uterm_clos
 SHL_EXPORT
 unsigned int input_get_mods(struct input *input)
 {
-	struct shl_dlist *iter;
 	struct input_dev *dev;
 	unsigned int mods = 0;
 
 	if (!input)
 		return 0;
-	shl_dlist_for_each(iter, &input->devices)
+	shl_dlist_for_each_entry(dev, &input->devices, list)
 	{
-		dev = shl_dlist_entry(iter, struct input_dev, list);
 		if (dev->capabilities & DEVICE_HAS_KEYS)
 			mods |= uxkb_dev_get_mods(dev);
 	}
@@ -706,7 +699,6 @@ unsigned int input_get_mods(struct input *input)
 SHL_EXPORT
 void input_sleep(struct input *input)
 {
-	struct shl_dlist *iter;
 	struct input_dev *dev;
 
 	if (!input)
@@ -718,9 +710,8 @@ void input_sleep(struct input *input)
 
 	log_debug("going to sleep");
 
-	shl_dlist_for_each(iter, &input->devices)
+	shl_dlist_for_each_entry(dev, &input->devices, list)
 	{
-		dev = shl_dlist_entry(iter, struct input_dev, list);
 		input_sleep_dev(dev);
 	}
 }
@@ -781,15 +772,13 @@ SHL_EXPORT
 void input_set_leds(struct input *input, unsigned int scroll_lock, unsigned int num_lock,
 		    unsigned int caps_lock)
 {
-	struct shl_dlist *iter;
 	struct input_dev *dev;
 
 	if (!input)
 		return;
 
-	shl_dlist_for_each(iter, &input->devices)
+	shl_dlist_for_each_entry(dev, &input->devices, list)
 	{
-		dev = shl_dlist_entry(iter, struct input_dev, list);
 		uxkb_dev_set_leds(dev, scroll_lock, num_lock, caps_lock);
 	}
 }

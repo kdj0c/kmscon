@@ -492,17 +492,14 @@ static int gltex_prepare(struct kmscon_text *txt, struct tsm_screen_attr *attr)
 {
 	struct gltex *gt = txt->data;
 	struct atlas *atlas;
-	struct shl_dlist *iter;
 	int ret;
 
 	ret = display_use(txt->disp);
 	if (ret)
 		return ret;
 
-	shl_dlist_for_each(iter, &gt->atlases)
+	shl_dlist_for_each_entry(atlas, &gt->atlases, list)
 	{
-		atlas = shl_dlist_entry(iter, struct atlas, list);
-
 		atlas->cache_num = 0;
 	}
 	gt->attr = *attr;
@@ -698,7 +695,6 @@ static int gltex_render(struct kmscon_text *txt)
 {
 	struct gltex *gt = txt->data;
 	struct atlas *atlas;
-	struct shl_dlist *iter;
 	float mat[16];
 
 	gl_clear_error();
@@ -721,9 +717,8 @@ static int gltex_render(struct kmscon_text *txt)
 	glActiveTexture(GL_TEXTURE0);
 	glUniform1i(gt->uni_atlas, 0);
 
-	shl_dlist_for_each(iter, &gt->atlases)
+	shl_dlist_for_each_entry(atlas, &gt->atlases, list)
 	{
-		atlas = shl_dlist_entry(iter, struct atlas, list);
 		if (!atlas->cache_num)
 			continue;
 

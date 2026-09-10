@@ -136,15 +136,13 @@ err_free:
 
 static inline void shl_register_free(struct shl_register *reg)
 {
-	struct shl_dlist *iter;
 	struct shl_register_record *record;
 
 	if (!reg)
 		return;
 
-	shl_dlist_for_each(iter, &reg->records)
+	shl_dlist_for_each_entry(record, &reg->records, list)
 	{
-		record = shl_dlist_entry(iter, struct shl_register_record, list);
 		shl_dlist_unlink(&record->list);
 		shl_register_record_unref(record);
 	}
@@ -156,7 +154,6 @@ static inline void shl_register_free(struct shl_register *reg)
 static inline int shl_register_add_cb(struct shl_register *reg, const char *name, void *data,
 				      shl_register_destroy_cb destroy)
 {
-	struct shl_dlist *iter;
 	struct shl_register_record *record;
 	int ret;
 
@@ -167,9 +164,8 @@ static inline int shl_register_add_cb(struct shl_register *reg, const char *name
 	if (ret)
 		return -EFAULT;
 
-	shl_dlist_for_each(iter, &reg->records)
+	shl_dlist_for_each_entry(record, &reg->records, list)
 	{
-		record = shl_dlist_entry(iter, struct shl_register_record, list);
 		if (!strcmp(record->name, name)) {
 			ret = -EALREADY;
 			goto out_unlock;
@@ -218,7 +214,6 @@ static inline int shl_register_add(struct shl_register *reg, const char *name, v
 
 static inline void shl_register_remove(struct shl_register *reg, const char *name)
 {
-	struct shl_dlist *iter;
 	struct shl_register_record *record;
 	int ret;
 
@@ -229,9 +224,8 @@ static inline void shl_register_remove(struct shl_register *reg, const char *nam
 	if (ret)
 		return;
 
-	shl_dlist_for_each(iter, &reg->records)
+	shl_dlist_for_each_entry(record, &reg->records, list)
 	{
-		record = shl_dlist_entry(iter, struct shl_register_record, list);
 		if (strcmp(record->name, name))
 			continue;
 
@@ -246,7 +240,6 @@ static inline void shl_register_remove(struct shl_register *reg, const char *nam
 static inline struct shl_register_record *shl_register_find(struct shl_register *reg,
 							    const char *name)
 {
-	struct shl_dlist *iter;
 	struct shl_register_record *record, *res;
 	int ret;
 
@@ -258,9 +251,8 @@ static inline struct shl_register_record *shl_register_find(struct shl_register 
 		return NULL;
 
 	res = NULL;
-	shl_dlist_for_each(iter, &reg->records)
+	shl_dlist_for_each_entry(record, &reg->records, list)
 	{
-		record = shl_dlist_entry(iter, struct shl_register_record, list);
 		if (!strcmp(record->name, name)) {
 			res = record;
 			shl_register_record_ref(res);

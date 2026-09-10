@@ -212,15 +212,13 @@ void issue_network_free_book(struct addr_book *book)
 
 const char *issue_network_get_best_ip(struct addr_book *book, const char *interface, bool ipv6)
 {
-	struct shl_dlist *iter;
 	struct ip_addr *ip;
 	struct ip_addr *best = NULL;
 	struct shl_dlist *head = ipv6 ? &book->ipv6 : &book->ipv4;
 	bool filter = (interface && *interface);
 
-	shl_dlist_for_each(iter, head)
+	shl_dlist_for_each_entry(ip, head, list)
 	{
-		ip = shl_dlist_entry(iter, struct ip_addr, list);
 		if (filter && strcmp(ip->interface, interface))
 			continue;
 		if (best) {
@@ -247,12 +245,10 @@ struct interface {
 
 static struct interface *get_interface(struct shl_dlist *ifaces, const char *name)
 {
-	struct shl_dlist *iter;
 	struct interface *iface;
 
-	shl_dlist_for_each(iter, ifaces)
+	shl_dlist_for_each_entry(iface, ifaces, list)
 	{
-		iface = shl_dlist_entry(iter, struct interface, list);
 		if (strcmp(iface->name, name) == 0)
 			return iface;
 	}
@@ -294,16 +290,14 @@ char *issue_network_get_all_ip(struct addr_book *book, bool filter)
 	if (book->best_quality == RAT_UNIVERSE)
 		book->best_quality = RAT_SITE;
 
-	shl_dlist_for_each(iter, &book->ipv4)
+	shl_dlist_for_each_entry(ip, &book->ipv4, list)
 	{
-		ip = shl_dlist_entry(iter, struct ip_addr, list);
 		if (filter && ip->quality < book->best_quality)
 			continue;
 		add_ip_to_interface(&head, ip);
 	}
-	shl_dlist_for_each(iter, &book->ipv6)
+	shl_dlist_for_each_entry(ip, &book->ipv6, list)
 	{
-		ip = shl_dlist_entry(iter, struct ip_addr, list);
 		if (filter && ip->quality < book->best_quality)
 			continue;
 		add_ip_to_interface(&head, ip);
@@ -312,9 +306,8 @@ char *issue_network_get_all_ip(struct addr_book *book, bool filter)
 	out = malloc(BUF_SIZE);
 	s = out;
 	remaining = BUF_SIZE - 1;
-	shl_dlist_for_each(iter, &head)
+	shl_dlist_for_each_entry(iface, &head, list)
 	{
-		iface = shl_dlist_entry(iter, struct interface, list);
 		len = snprintf(s, remaining, "%s: ", iface->name);
 		s += len;
 		remaining -= len;

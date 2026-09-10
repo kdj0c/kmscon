@@ -114,16 +114,14 @@ static struct uterm_monitor_dev *monitor_find_dev(struct uterm_monitor *mon,
 						  struct udev_device *dev)
 {
 	const char *node;
-	struct shl_dlist *iter;
 	struct uterm_monitor_dev *sdev;
 
 	node = udev_device_get_devnode(dev);
 	if (!node)
 		return NULL;
 
-	shl_dlist_for_each(iter, &mon->devices)
+	shl_dlist_for_each_entry(sdev, &mon->devices, list)
 	{
-		sdev = shl_dlist_entry(iter, struct uterm_monitor_dev, list);
 		if (!strcmp(node, sdev->node))
 			return sdev;
 	}

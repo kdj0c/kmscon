@@ -2139,6 +2139,17 @@ void ev_eloop_rm_counter(struct ev_counter *cnt)
  * eloop description to see some drawbacks when nesting eloop objects with the
  * same shared signal sources.
  */
+static struct ev_signal_shared *ev_loop_get_signal(struct ev_eloop *loop, int signum)
+{
+	struct ev_signal_shared *sig;
+
+	shl_dlist_for_each_entry(sig, &loop->sig_list, list)
+	{
+		if (sig->signum == signum)
+			return sig;
+	}
+	return NULL;
+}
 
 /**
  * ev_eloop_register_signal_cb:
@@ -2156,20 +2167,13 @@ SHL_EXPORT
 int ev_eloop_register_signal_cb(struct ev_eloop *loop, int signum, ev_signal_shared_cb cb,
 				void *data)
 {
-	struct ev_signal_shared *sig = NULL;
+	struct ev_signal_shared *sig;
 	int ret;
-	struct shl_dlist *iter;
 
 	if (!loop || signum < 0 || !cb)
 		return -EINVAL;
 
-	shl_dlist_for_each(iter, &loop->sig_list)
-	{
-		sig = shl_dlist_entry(iter, struct ev_signal_shared, list);
-		if (sig->signum == signum)
-			break;
-		sig = NULL;
-	}
+	sig = ev_loop_get_signal(loop, signum);
 
 	if (!sig) {
 		ret = signal_new(&sig, loop, signum);
@@ -2203,14 +2207,12 @@ void ev_eloop_unregister_signal_cb(struct ev_eloop *loop, int signum, ev_signal_
 				   void *data)
 {
 	struct ev_signal_shared *sig;
-	struct shl_dlist *iter;
 
 	if (!loop)
 		return;
 
-	shl_dlist_for_each(iter, &loop->sig_list)
+	shl_dlist_for_each_entry(sig, &loop->sig_list, list)
 	{
-		sig = shl_dlist_entry(iter, struct ev_signal_shared, list);
 		if (sig->signum == signum) {
 			shl_hook_rm_cast(sig->hook, cb, data);
 			if (!shl_hook_num(sig->hook))
