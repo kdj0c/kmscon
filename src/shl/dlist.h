@@ -121,20 +121,13 @@ static inline bool shl_dlist_empty(struct shl_dlist *head)
 	     &iter->member != (head);                                                              \
 	     iter = shl_dlist_entry(tmp, typeof(*iter), member), tmp = iter->member.next)
 
-#define shl_dlist_for_each_but_one(iter, start, head)                                              \
-	for (iter = ((start)->next == (head)) ? (start)->next->next : (start)->next;               \
-	     iter != (start);                                                                      \
-	     iter = (iter->next == (head) && (start) != (head)) ? iter->next->next : iter->next)
+#define shl_dlist_for_each_entry_reverse(iter, head, member)                                       \
+	for (iter = shl_dlist_entry((head)->prev, typeof(*iter), member); &iter->member != (head); \
+	     iter = shl_dlist_entry(iter->member.prev, typeof(*iter), member))
 
-#define shl_dlist_for_each_reverse(iter, head)                                                     \
-	for (iter = (head)->prev; iter != (head); iter = iter->prev)
-
-#define shl_dlist_for_each_reverse_but_one(iter, start, head)                                      \
-	for (iter = ((start)->prev == (head)) ? (start)->prev->prev : (start)->prev;               \
-	     iter != (start);                                                                      \
-	     iter = (iter->prev == (head) && (start) != (head)) ? iter->prev->prev : iter->prev)
-
-#define shl_dlist_for_each_reverse_safe(iter, tmp, head)                                           \
-	for (iter = (head)->prev, tmp = iter->prev; iter != (head); iter = tmp, tmp = iter->prev)
+#define shl_dlist_for_each_entry_reverse_safe(iter, tmp, head, member)                             \
+	for (iter = shl_dlist_entry((head)->prev, typeof(*iter), member), tmp = iter->member.prev; \
+	     &iter->member != (head);                                                              \
+	     iter = shl_dlist_entry(tmp, typeof(*iter), member), tmp = iter->member.prev)
 
 #endif /* SHL_DLIST_H */

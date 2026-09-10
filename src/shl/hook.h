@@ -152,19 +152,17 @@ static inline int shl_hook_add_single(struct shl_hook *hook, shl_hook_cb cb, voi
 
 static inline void shl_hook_rm(struct shl_hook *hook, shl_hook_cb cb, void *data)
 {
-	struct shl_dlist *iter;
 	struct shl_hook_entry *entry;
 
 	if (!hook || !cb)
 		return;
 
-	shl_dlist_for_each_reverse(iter, &hook->entries)
+	shl_dlist_for_each_entry_reverse(entry, &hook->entries, list)
 	{
-		entry = shl_dlist_entry(iter, struct shl_hook_entry, list);
 		if (entry->cb == cb && entry->data == data) {
 			/* if *_call() is running we must not disturb it */
-			if (hook->cur_entry == iter)
-				hook->cur_entry = iter->next;
+			if (hook->cur_entry == &entry->list)
+				hook->cur_entry = entry->list.next;
 			shl_dlist_unlink(&entry->list);
 			free(entry);
 			hook->num--;
@@ -175,19 +173,18 @@ static inline void shl_hook_rm(struct shl_hook *hook, shl_hook_cb cb, void *data
 
 static inline void shl_hook_rm_all(struct shl_hook *hook, shl_hook_cb cb, void *data)
 {
-	struct shl_dlist *iter, *tmp;
+	struct shl_dlist *tmp;
 	struct shl_hook_entry *entry;
 
 	if (!hook || !cb)
 		return;
 
-	shl_dlist_for_each_reverse_safe(iter, tmp, &hook->entries)
+	shl_dlist_for_each_entry_reverse_safe(entry, tmp, &hook->entries, list)
 	{
-		entry = shl_dlist_entry(iter, struct shl_hook_entry, list);
 		if (entry->cb == cb && entry->data == data) {
 			/* if *_call() is running we must not disturb it */
-			if (hook->cur_entry == iter)
-				hook->cur_entry = iter->next;
+			if (hook->cur_entry == &entry->list)
+				hook->cur_entry = entry->list.next;
 			shl_dlist_unlink(&entry->list);
 			free(entry);
 			hook->num--;
