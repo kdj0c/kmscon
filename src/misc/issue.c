@@ -35,6 +35,8 @@
 #include "issue_network.h"
 #include "shl/log.h"
 
+#define LOG_SUBSYSTEM "issue"
+
 /* Cap total collected issue text to prevent runaway allocation. */
 #define ISSUE_MAX_SIZE (256u * 1024u)
 

@@ -42,31 +42,27 @@
 
 #define LOG_SUBSYSTEM "uxkb"
 
+static enum log_severity uxkb_log_level(enum xkb_log_level level)
+{
+	switch (level) {
+	case XKB_LOG_LEVEL_CRITICAL:
+		return LOG_CRITICAL;
+	case XKB_LOG_LEVEL_ERROR:
+		return LOG_ERROR;
+	case XKB_LOG_LEVEL_WARNING:
+		return LOG_WARNING;
+	case XKB_LOG_LEVEL_INFO:
+		return LOG_INFO;
+	case XKB_LOG_LEVEL_DEBUG:
+	default:
+		return LOG_DEBUG;
+	}
+}
+
 static void uxkb_log(struct xkb_context *context, enum xkb_log_level level, const char *format,
 		     va_list args)
 {
-	unsigned int sev;
-
-	switch (level) {
-	case XKB_LOG_LEVEL_CRITICAL:
-		sev = LOG_CRITICAL;
-		break;
-	case XKB_LOG_LEVEL_ERROR:
-		sev = LOG_ERROR;
-		break;
-	case XKB_LOG_LEVEL_WARNING:
-		sev = LOG_WARNING;
-		break;
-	case XKB_LOG_LEVEL_INFO:
-		sev = LOG_INFO;
-		break;
-	case XKB_LOG_LEVEL_DEBUG:
-		/* fallthrough */
-	default:
-		sev = LOG_DEBUG;
-		break;
-	}
-	log_submit(LOG_DEFAULT, sev, format, args);
+	log_submit(uxkb_log_level(level), "xkbcommon", format, args);
 }
 
 static struct xkb_keymap *uxkb_layout_from_file(struct input *input, const char *file)

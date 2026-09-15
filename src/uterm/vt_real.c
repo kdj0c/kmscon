@@ -74,6 +74,8 @@
 #include "vt.h"
 #include "vt_internal.h"
 
+#define LOG_SUBSYSTEM "vt"
+
 struct uterm_vt_real {
 	struct uterm_vt base;
 

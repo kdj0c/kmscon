@@ -39,6 +39,8 @@
 #include "shl/log.h"
 #include "shl/misc.h"
 
+#define LOG_SUBSYSTEM "config"
+
 static void print_help()
 {
 	/*
@@ -866,10 +868,12 @@ int kmscon_conf_load_main(struct conf_ctx *ctx, int argc, char **argv)
 	if (conf->exit)
 		return 0;
 
-	if (!conf->debug && !conf->verbose && conf->silent)
-		log_set_config(&LOG_CONFIG_WARNING(0, 0, 0, 0));
-	else
-		log_set_config(&LOG_CONFIG_INFO(conf->debug, conf->verbose));
+	if (conf->silent)
+		log_set_level(LOG_WARNING);
+	else if (conf->debug)
+		log_set_level(LOG_DEBUG);
+	else if (conf->verbose)
+		log_set_level(LOG_INFO);
 
 	ret = conf_ctx_parse_file(ctx, "%s/kmscon.conf", conf->configdir);
 	if (ret)
@@ -880,10 +884,12 @@ int kmscon_conf_load_main(struct conf_ctx *ctx, int argc, char **argv)
 	 * or debug in the config file too, and if you set it on the command line,
 	 * you will get the debug messages when parsing kmscon.conf.
 	 */
-	if (!conf->debug && !conf->verbose && conf->silent)
-		log_set_config(&LOG_CONFIG_WARNING(0, 0, 0, 0));
-	else
-		log_set_config(&LOG_CONFIG_INFO(conf->debug, conf->verbose));
+	if (conf->silent)
+		log_set_level(LOG_WARNING);
+	else if (conf->debug)
+		log_set_level(LOG_DEBUG);
+	else if (conf->verbose)
+		log_set_level(LOG_INFO);
 
 	/* You can't set a mode, and use_original_mode at the same time
 	 * specified mode takes priority.

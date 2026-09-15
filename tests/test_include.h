@@ -103,10 +103,12 @@ static int test_prepare(struct conf_option *opts, size_t len, int argc, char **a
 		goto err_out;
 	}
 
-	if (!test_conf.debug && !test_conf.verbose && test_conf.silent)
-		log_set_config(&LOG_CONFIG_WARNING(0, 0, 0, 0));
-	else
-		log_set_config(&LOG_CONFIG_INFO(test_conf.debug, test_conf.verbose));
+	if (test_conf.silent)
+		log_set_level(LOG_WARNING);
+	else if (test_conf.debug)
+		log_set_level(LOG_DEBUG);
+	else if (test_conf.verbose)
+		log_set_level(LOG_INFO);
 
 	log_print_init(argv[0]);
 
