@@ -260,7 +260,7 @@ static enum log_severity log_level(enum libseat_log_level level)
 
 static void log_libseat(enum libseat_log_level level, const char *fmt, va_list args)
 {
-	log_submit(LOG_DEFAULT, log_level(level), fmt, args);
+	log_submit(log_level(level), "libseat", fmt, args);
 }
 
 static void vt_libseat_input(struct input *input, struct input_key_event *ev, void *data)
