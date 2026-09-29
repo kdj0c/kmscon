@@ -781,7 +781,7 @@ int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
 {
 	struct screen *scr;
 	int ret;
-	const char *be;
+	const char *be, *gpu, *connector;
 	bool opengl;
 
 	dlist_for_each_entry(scr, &term->screens, list)
@@ -799,6 +799,9 @@ int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
 	scr->term = term;
 	scr->disp = disp;
 	scr->enabled = true;
+
+	gpu = video_name(display_video(disp));
+	connector = display_name(disp);
 
 	ret = display_register_pageflip(scr->disp, display_pageflip, scr);
 	if (ret) {
@@ -826,8 +829,8 @@ int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
 		goto err_text;
 	}
 
-	log_notice("Display [%s] with backend [%s] text renderer [%s] font engine [%s]\n",
-		   display_name(disp), display_backend_name(disp), scr->txt->ops->name,
+	log_notice("Display %s[%s] with backend [%s] text renderer [%s] font engine [%s]\n", gpu,
+		   connector, display_backend_name(disp), scr->txt->ops->name,
 		   term->font->ops->name);
 
 	log_debug("added display %p to terminal %p", disp, term);
