@@ -180,7 +180,7 @@ static void print_help()
 		"\t    --hwaccel                 [off]   Use 3D hardware-acceleration if\n"
 		"\t                                      available\n"
 		"\t    --gpus={all,aux,primary}  [all]   GPU selection mode\n"
-		"\t    --use-original-mode     [on]    Use original KMS video mode\n"
+		"\t    --use-original-mode       [off]   Use original KMS video mode\n"
 		"\t    --mode <width>x<height>   [0x0]  Set the desired mode for the\n"
 		"\t                                     output. If the specified mode is\n"
 		"\t                                     not available or encounters an\n"
@@ -795,7 +795,7 @@ int kmscon_conf_new(struct conf_ctx **out)
 		CONF_OPTION_BOOL(0, "hwaccel", &conf->hwaccel, false),
 		CONF_OPTION(0, 0, "gpus", &conf_gpus, NULL, NULL, NULL, &conf->gpus,
 			    (void *)KMSCON_GPU_ALL),
-		CONF_OPTION_BOOL(0, "use-original-mode", &conf->use_original_mode, true),
+		CONF_OPTION_BOOL(0, "use-original-mode", &conf->use_original_mode, false),
 		CONF_OPTION_STRING(0, "mode", &conf->mode, NULL),
 		CONF_OPTION_STRING(0, "multi-monitor", &conf->multi_monitor, "scaled"),
 		CONF_OPTION_STRING(0, "rotate", &conf->rotate, "normal"),
