@@ -562,7 +562,7 @@ static void font_update_all(struct kmscon_terminal *term)
  * We support multiple monitors per terminal. In clone mode, we use the smallest cols/rows that are
  * provided so wider monitors will have black margins.
  */
-static bool terminal_update_size_clone(struct kmscon_terminal *term)
+static void terminal_update_size_clone(struct kmscon_terminal *term)
 {
 	struct screen *scr;
 	unsigned int min_cols = UINT_MAX;
@@ -580,22 +580,20 @@ static bool terminal_update_size_clone(struct kmscon_terminal *term)
 			min_rows = rows;
 	}
 	if (min_cols == UINT_MAX || min_rows == UINT_MAX)
-		return false;
+		return;
 
 	if (min_cols == term->cols && min_rows == term->rows)
-		return false;
+		return;
 
 	term->cols = min_cols;
 	term->rows = min_rows;
-
-	return true;
 }
 
 /*
  * In largest mode, we use the largest cols/rows that are
  * provided so smaller monitors will be disabled.
  */
-static bool terminal_update_size_largest(struct kmscon_terminal *term)
+static void terminal_update_size_largest(struct kmscon_terminal *term)
 {
 	struct screen *scr;
 	unsigned int rows, cols, cells;
@@ -623,7 +621,6 @@ static bool terminal_update_size_largest(struct kmscon_terminal *term)
 			scr->enabled = true;
 		}
 	}
-	return max_cells > 0;
 }
 
 static void scale_screen(struct screen *scr, unsigned int scaled_height)
@@ -665,7 +662,7 @@ retry:
  * In scaled mode, we find the minimum cols/rows among all screens
  * and directly scale up the font height on larger screens to match.
  */
-static bool terminal_update_size_scaled(struct kmscon_terminal *term)
+static void terminal_update_size_scaled(struct kmscon_terminal *term)
 {
 	struct screen *scr;
 	unsigned int height = term->font->height;
@@ -689,13 +686,14 @@ static bool terminal_update_size_scaled(struct kmscon_terminal *term)
 			kmscon_text_set(scr->txt, term->font);
 		refresh_hw_cursor(scr);
 	}
-	return !dlist_empty(&term->screens);
 }
 
+/* Returns true if the terminal size has changed */
 static bool terminal_update_size(struct kmscon_terminal *term)
 {
 	struct screen *scr;
-	bool ret;
+	unsigned int cols = term->cols;
+	unsigned int rows = term->rows;
 
 	if (term->auto_font_size) {
 		unsigned int new_font_size = terminal_get_auto_font_size(term);
@@ -707,13 +705,13 @@ static bool terminal_update_size(struct kmscon_terminal *term)
 	}
 
 	if (term->conf->multi_monitor && !strcmp(term->conf->multi_monitor, "largest")) {
-		ret = terminal_update_size_largest(term);
+		terminal_update_size_largest(term);
 	} else if (term->conf->multi_monitor && !strcmp(term->conf->multi_monitor, "scaled")) {
-		ret = terminal_update_size_scaled(term);
+		terminal_update_size_scaled(term);
 	} else {
-		ret = terminal_update_size_clone(term);
+		terminal_update_size_clone(term);
 	}
-	if (!ret)
+	if (cols == term->cols && rows == term->rows)
 		return false;
 
 	dlist_for_each_entry(scr, &term->screens, list)
