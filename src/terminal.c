@@ -97,8 +97,11 @@ struct kmscon_terminal {
 	struct ev_fd *ptyfd;
 
 	struct kmscon_font *font;
-	/* font size configured in kmscon.conf, and updated with zoom in/out.
-	 * do not use for cell size calculations */
+	/* Automatically adjust font size to fit terminal size
+	 * set to false if font-size is set in kmscon.conf, or
+	 * after zoom in/out
+	 */
+	bool auto_font_size;
 	unsigned int font_size;
 
 	struct kmscon_pointer pointer;
@@ -503,14 +506,13 @@ static void mouse_event(struct tsm_vte *vte, enum tsm_mouse_track_mode track_mod
 	tsm_screen_selection_reset(term->console);
 }
 
-static unsigned int terminal_get_font_size(struct kmscon_terminal *term)
+static unsigned int terminal_get_auto_font_size(struct kmscon_terminal *term)
 {
 	unsigned int width, height, font_height;
 
-	if (term->font_size)
+	if (!term->auto_font_size)
 		return term->font_size;
 
-	/* Font size is not set yet, try to find the better default */
 	width = term_min_width(term);
 	height = term_min_height(term);
 
@@ -524,6 +526,35 @@ static unsigned int terminal_get_font_size(struct kmscon_terminal *term)
 		font_height = height / 40;
 
 	return font_height < 16 ? 16 : font_height;
+}
+
+static int font_set(struct kmscon_terminal *term, unsigned int new_size)
+{
+	int ret;
+	struct kmscon_font *font;
+
+	ret = kmscon_font_find(&font, term->conf->font_name, new_size, term->conf->font_engine);
+	if (ret)
+		return ret;
+
+	kmscon_font_unref(term->font);
+	term->font = font;
+	term->font_size = new_size;
+	return 0;
+}
+
+static void font_update_all(struct kmscon_terminal *term)
+{
+	struct screen *scr;
+	int ret;
+
+	dlist_for_each_entry(scr, &term->screens, list)
+	{
+		ret = kmscon_text_set(scr->txt, term->font);
+		if (ret)
+			log_warning("cannot change text-renderer font: %d", ret);
+		refresh_hw_cursor(scr);
+	}
 }
 
 /*
@@ -665,6 +696,15 @@ static bool terminal_update_size(struct kmscon_terminal *term)
 	struct screen *scr;
 	bool ret;
 
+	if (term->auto_font_size) {
+		unsigned int new_font_size = terminal_get_auto_font_size(term);
+
+		if (new_font_size != term->font_size) {
+			font_set(term, new_font_size);
+			font_update_all(term);
+		}
+	}
+
 	if (term->conf->multi_monitor && !strcmp(term->conf->multi_monitor, "largest")) {
 		ret = terminal_update_size_largest(term);
 	} else if (term->conf->multi_monitor && !strcmp(term->conf->multi_monitor, "scaled")) {
@@ -690,37 +730,6 @@ static void terminal_update_size_notify(struct kmscon_terminal *term)
 		tsm_screen_resize(term->console, term->cols, term->rows);
 		kmscon_pty_resize(term->pty, term->cols, term->rows);
 		redraw_all(term);
-	}
-}
-
-static int font_set(struct kmscon_terminal *term, unsigned int new_size)
-{
-	int ret;
-	struct kmscon_font *font;
-
-	ret = kmscon_font_find(&font, term->conf->font_name, new_size, term->conf->font_engine);
-	if (ret)
-		return ret;
-
-	kmscon_font_unref(term->font);
-	term->font = font;
-
-	term->cols = 0;
-	term->rows = 0;
-	return 0;
-}
-
-static void font_update_all(struct kmscon_terminal *term)
-{
-	struct screen *scr;
-	int ret;
-
-	dlist_for_each_entry(scr, &term->screens, list)
-	{
-		ret = kmscon_text_set(scr->txt, term->font);
-		if (ret)
-			log_warning("cannot change text-renderer font: %d", ret);
-		refresh_hw_cursor(scr);
 	}
 }
 
@@ -809,14 +818,6 @@ int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
 	}
 
 	dlist_link(&term->screens, &scr->list);
-	/* Update default font size if not set */
-	if (!term->font_size) {
-		if (font_set(term, terminal_get_font_size(term))) {
-			log_err("cannot set font size: %d", ret);
-			goto err_link;
-		}
-		font_update_all(term);
-	}
 
 	ret = kmscon_text_set(scr->txt, term->font);
 	if (ret) {
@@ -842,7 +843,6 @@ int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
 
 err_text:
 	kmscon_text_unref(scr->txt);
-err_link:
 	dlist_unlink(&scr->list);
 err_cb:
 	display_unregister_pageflip(scr->disp, display_pageflip, scr);
@@ -867,11 +867,6 @@ static void free_screen(struct screen *scr, bool update)
 	if (!update || dlist_empty(&term->screens))
 		return;
 
-	// if font size is not set, adjust the size of the remaining displays.
-	if (!term->font_size)
-		if (!font_set(term, terminal_get_font_size(term)))
-			font_update_all(term);
-
 	update_pointer_max_all(term);
 	terminal_update_size_notify(term);
 }
@@ -894,8 +889,7 @@ static void zoom_in(struct kmscon_terminal *term)
 {
 	unsigned int new_size;
 
-	if (term->font_size == 0)
-		term->font_size = terminal_get_font_size(term);
+	term->auto_font_size = false; // don't auto-adjust font size anymore
 
 	if (term->font_size > 150) // don't allow zoom in beyond 150
 		return;
@@ -903,7 +897,6 @@ static void zoom_in(struct kmscon_terminal *term)
 	new_size = term->font_size + term->font->increase_step;
 	if (font_set(term, new_size))
 		return;
-	term->font_size = new_size;
 	font_update_all(term);
 	terminal_update_size_notify(term);
 }
@@ -912,8 +905,7 @@ static void zoom_out(struct kmscon_terminal *term)
 {
 	unsigned int new_size;
 
-	if (term->font_size == 0)
-		term->font_size = terminal_get_font_size(term);
+	term->auto_font_size = false; // don't auto-adjust font size anymore
 
 	if (term->font_size <= term->font->increase_step)
 		return;
@@ -922,7 +914,6 @@ static void zoom_out(struct kmscon_terminal *term)
 	new_size = term->font_size - term->font->increase_step;
 	if (font_set(term, new_size))
 		return;
-	term->font_size = new_size;
 	font_update_all(term);
 	terminal_update_size_notify(term);
 }
@@ -1426,8 +1417,12 @@ struct kmscon_terminal *terminal_new(struct kmscon_session *session, unsigned in
 	if (ret)
 		goto err_vte;
 
-	term->font_size = term->conf->font_size;
-	ret = font_set(term, terminal_get_font_size(term));
+	term->auto_font_size = (term->conf->font_size == 0);
+	if (term->auto_font_size)
+		term->font_size = terminal_get_auto_font_size(term);
+	else
+		term->font_size = term->conf->font_size;
+	ret = font_set(term, term->font_size);
 	if (ret)
 		goto err_vte;
 
