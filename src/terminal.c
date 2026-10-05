@@ -730,6 +730,7 @@ static void terminal_update_size_notify(struct kmscon_terminal *term)
 		kmscon_pty_resize(term->pty, term->cols, term->rows);
 		redraw_all(term);
 	}
+	update_pointer_max_all(term);
 }
 
 static void rotate_cw_screen(struct screen *scr)
@@ -749,7 +750,6 @@ static void rotate_cw_all(struct kmscon_terminal *term)
 		rotate_cw_screen(scr);
 	}
 	terminal_update_size_notify(term);
-	update_pointer_max_all(term);
 }
 
 static void rotate_ccw_screen(struct screen *scr)
@@ -772,7 +772,6 @@ static void rotate_ccw_all(struct kmscon_terminal *term)
 		rotate_ccw_screen(scr);
 	}
 	terminal_update_size_notify(term);
-	update_pointer_max_all(term);
 }
 
 int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
@@ -837,8 +836,6 @@ int terminal_add_display(struct kmscon_terminal *term, struct display *disp)
 		setup_hw_cursor(scr);
 
 	terminal_update_size_notify(term);
-	kmscon_text_resize(scr->txt, term->cols, term->rows);
-	update_pointer_max_all(term);
 	display_ref(scr->disp);
 	do_redraw_screen(scr);
 	return 0;
@@ -869,7 +866,6 @@ static void free_screen(struct screen *scr, bool update)
 	if (!update || dlist_empty(&term->screens))
 		return;
 
-	update_pointer_max_all(term);
 	terminal_update_size_notify(term);
 }
 
