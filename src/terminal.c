@@ -1282,8 +1282,15 @@ static void terminal_close(struct kmscon_terminal *term)
 
 void terminal_refresh_displays(struct kmscon_terminal *term)
 {
+	struct screen *scr;
+
 	if (term->pointer.visible)
 		hw_cursor_show(term, term->pointer.x, term->pointer.y);
+
+	dlist_for_each_entry(scr, &term->screens, list)
+	{
+		display_set_need_redraw(scr->disp);
+	}
 	redraw_all(term);
 }
 

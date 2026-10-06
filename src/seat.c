@@ -360,7 +360,6 @@ static void seat_remove_display(void *data, struct display *disp)
 
 static void seat_refresh_display(void *data, struct display *disp)
 {
-	struct kmscon_session *s;
 	struct kmscon_display *d;
 	struct kmscon_seat *seat = data;
 
@@ -370,12 +369,8 @@ static void seat_refresh_display(void *data, struct display *disp)
 	if (!d)
 		return;
 
-	if (d->activated) {
-		dlist_for_each_entry(s, &seat->sessions, list)
-		{
-			terminal_refresh_displays(s->term);
-		}
-	}
+	if (d->activated && seat->current_sess)
+		terminal_refresh_displays(seat->current_sess->term);
 }
 
 static void seat_vt_activate(struct uterm_vt *vt, void *data)
