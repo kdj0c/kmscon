@@ -459,7 +459,7 @@ static void seat_dpms_timeout(struct ev_timer *timer, uint64_t num, void *data)
 	struct kmscon_display *d;
 	int ret;
 
-	if (!seat->conf->dpms_timeout || !seat->awake)
+	if (!seat->conf->dpms_timeout || !seat->awake || !seat->foreground)
 		return;
 
 	log_debug("DPMS: blanking screen due to inactivity");
@@ -486,7 +486,7 @@ static void seat_dpms_reset_timer(struct kmscon_seat *seat)
 	struct itimerspec spec;
 	int ret;
 
-	if (!seat->conf->dpms_timeout || !seat->dpms_timer)
+	if (!seat->conf->dpms_timeout || !seat->dpms_timer || !seat->foreground)
 		return;
 
 	/* If screen is blanked, unblank it */
@@ -499,7 +499,8 @@ static void seat_dpms_reset_timer(struct kmscon_seat *seat)
 				continue;
 			ret = display_set_dpms(d->disp, DPMS_ON);
 			if (ret)
-				log_warning("cannot set DPMS to ON for display: %d", ret);
+				log_warning("cannot set DPMS to ON for display: [%s] %d",
+					    display_name(d->disp), ret);
 		}
 		if (seat->current_sess)
 			terminal_activate(seat->current_sess->term);
@@ -1146,9 +1147,16 @@ int kmscon_session_set_foreground(struct kmscon_session *sess)
 		if (ret)
 			return ret;
 
+		ret = seat_go_awake(seat);
+		if (ret)
+			return ret;
+
 		ret = seat_go_foreground(seat);
 		if (ret)
 			return ret;
+
+		if (sess->term)
+			terminal_activate(sess->term);
 	}
 
 	sess->foreground = true;
@@ -1167,7 +1175,13 @@ int kmscon_session_set_background(struct kmscon_session *sess)
 
 	seat = sess->seat;
 	if (seat && seat->current_sess == sess && seat->foreground) {
+		if (sess->term)
+			terminal_deactivate(sess->term);
+
 		ret = seat_go_background(seat);
+		if (ret)
+			return ret;
+		ret = seat_go_asleep(seat);
 		if (ret)
 			return ret;
 	}
