@@ -432,7 +432,7 @@ static void select_font_size(struct kmscon_font *font, FT_Face face)
 			return;
 		}
 		height--;
-	} while (face->size->metrics.height >> 6 > height && height > 10);
+	} while (face->size->metrics.height >> 6 > font->height && height > 10);
 }
 
 static FT_Face prepare_tmp_face(FT_Library ft, struct ft_font *font, int fallback)
