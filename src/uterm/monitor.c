@@ -244,9 +244,21 @@ static bool is_drm_primary(struct uterm_monitor *mon, struct udev_device *dev, c
 			log_debug("DRM device %s is primary PCI GPU", node);
 			return true;
 		}
+		return false;
 	}
 
-	return false;
+	/*
+	 * SoC display controllers are platform devices without a boot_vga
+	 * attribute. Treat them as primary. USB displays sit below a platform
+	 * USB controller on such systems, but are never primary.
+	 */
+	if (udev_device_get_parent_with_subsystem_devtype(dev, "usb", NULL))
+		return false;
+	if (!udev_device_get_parent_with_subsystem_devtype(dev, "platform", NULL))
+		return false;
+
+	log_debug("DRM device %s is primary platform GPU", node);
+	return true;
 }
 
 /*
