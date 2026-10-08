@@ -462,10 +462,7 @@ static FT_Face prepare_tmp_face(FT_Library ft, struct ft_font *font, int fallbac
 	if (!pattern)
 		return NULL;
 
-	if (FcPatternGetString(pattern, FC_FULLNAME, 0, &full_name) == FcResultMatch)
-		font->name = strdup((char *)full_name);
-	else
-		font->name = strdup("Unknown");
+	FcPatternGetString(pattern, FC_FULLNAME, 0, &full_name);
 
 	if (FcPatternGetString(pattern, FC_FILE, 0, &path) != FcResultMatch)
 		goto err_pattern;
@@ -473,7 +470,7 @@ static FT_Face prepare_tmp_face(FT_Library ft, struct ft_font *font, int fallbac
 	if (FcPatternGetInteger(pattern, FC_INDEX, 0, &index) != FcResultMatch)
 		log_warn("%s: failed to get face index", path);
 
-	log_debug("Loading fallback font %s %s", font->name, (char *)path);
+	log_debug("Loading fallback font %s %s", (char *)full_name, (char *)path);
 
 	err = FT_New_Face(ft, (char *)path, index, &face);
 	if (err)
